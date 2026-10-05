@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    color: #1c1917;
+    background: #f7f6f3;
+  }
+
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: #d9e8e6;
+    color: #1c1917;
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: #ffffff;
+    color: #1c1917;
+    border-color: #e4e2db;
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease,
+      border-color 120ms ease;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #a8a29e;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+    border-color: #1d4e4a;
+    box-shadow: 0 0 0 2px #d9e8e6;
+  }
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #1d4e4a;
+    cursor: pointer;
+  }
+
+  option {
+    background: #ffffff;
+    color: #1c1917;
+  }
+
+  button {
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease,
+      opacity 120ms ease;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  .hud-canvas,
+  .paper-canvas,
+  .auth-canvas {
+    background: #f7f6f3;
+  }
+
+  .glass,
+  .surface {
+    background: #ffffff;
+    border: 1px solid #e4e2db;
+    box-shadow: none;
+  }
+
+  .glass-strong,
+  .hud-panel {
+    background: #ffffff;
+    border: 1px solid #e4e2db;
+    border-radius: 8px;
+    box-shadow: 0 16px 40px rgba(28, 25, 23, 0.12);
+  }
+
+  .paper-section {
+    border-top: 1px solid #e4e2db;
+    padding-top: 24px;
+  }
+
+  .section-label {
+    @apply text-[12px] font-semibold uppercase tracking-[0.04em] text-muted;
+  }
+
+  .btn-primary {
+    @apply inline-flex h-9 items-center justify-center rounded bg-accent px-3.5 text-sm font-semibold text-white;
+  }
+
+  .btn-primary:hover {
+    background-color: #163d3a;
+  }
+
+  .btn-ghost {
+    @apply inline-flex h-9 items-center justify-center rounded px-3 text-sm text-ink hover:bg-hover;
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded text-ink hover:bg-hover;
+  }
+
+  .field {
+    @apply h-9 rounded border border-line px-3 text-sm;
+  }
+
+  .nav-item {
+    @apply mb-0.5 flex h-9 items-center gap-2 rounded px-2 text-sm text-sidebar-muted hover:bg-hover hover:text-sidebar-ink;
+  }
+
+  .nav-item-active {
+    @apply bg-active font-medium text-sidebar-ink hover:bg-active hover:text-sidebar-ink;
+  }
+
+  .icon-tile {
+    border-radius: 4px;
+    color: inherit;
+    background: transparent;
+  }
+
+  .icon-tile-active {
+    color: inherit;
+  }
+
+  .grab-chip {
+    cursor: grab;
+    background: #ffffff;
+    border: 1px solid #e4e2db;
+  }
+
+  .grab-chip:active {
+    cursor: grabbing;
+  }
+
+  .hud-drop {
+    background: #f7f6f3;
+    border: 1px dashed #e4e2db;
+  }
+
+  .npp {
+    background: #ffffff;
+    border: 1px solid #e4e2db;
+  }
+
+  .npp-tab {
+    background: #efede6;
+    color: #1c1917;
+  }
+
+  .npp-gutter {
+    width: 52px;
+    background: #f7f6f3;
+    color: #a8a29e;
+    user-select: none;
+  }
+
+  .npp-editor {
+    background: #ffffff;
+    color: #1c1917;
+    caret-color: #1d4e4a;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  .npp-status {
+    background: #d9e8e6;
+    color: #1d4e4a;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
