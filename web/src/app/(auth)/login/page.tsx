@@ -23,6 +23,7 @@ export default function LoginPage() {
           onSubmit={async (e) => {
             e.preventDefault();
             try {
+              localStorage.removeItem("workspaceId");
               await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
               router.replace("/");
             } catch (err) {

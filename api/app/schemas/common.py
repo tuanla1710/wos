@@ -88,6 +88,13 @@ class HolidayIn(BaseModel):
     name: str = ""
 
 
+class HolidaySettingsIn(BaseModel):
+    country: str | None = None
+    country2: str | None = None
+    skip: Date | None = None
+    unskip: Date | None = None
+
+
 class LinkIn(BaseModel):
     title: str | None = Field(default=None, max_length=160)
     url: str = Field(min_length=1, max_length=2000)

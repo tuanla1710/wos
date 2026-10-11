@@ -1,3 +1,4 @@
+from datetime import date as Date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
@@ -15,6 +16,7 @@ from app.schemas.common import (
     AiApplyIn,
     CommentIn,
     HolidayIn,
+    HolidaySettingsIn,
     InviteIn,
     LinkIn,
     LinkPatch,
@@ -46,6 +48,9 @@ from app.services.notes import (
     set_starred,
 )
 from app.services.notify import ensure_due_notifications
+from app.services.public_holidays import effective_country, holidays_between
+from app.services.public_holidays import is_supported as is_supported_country
+from app.services.public_holidays import settings_out as holiday_settings_out
 from app.services.serialize import holiday_out, project_out, task_out
 from app.services.social import (
     add_comment,
@@ -153,6 +158,52 @@ def delete_holiday_route(
     db.delete(row)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/holidays")
+def public_holidays_route(
+    from_: Date = Query(alias="from"),
+    to: Date = Query(),
+    db: Session = Depends(get_db),
+    workspace: Workspace = Depends(current_workspace),
+) -> dict:
+    if to < from_ or (to - from_).days > 1500:
+        raise HTTPException(400, "Range must be 0–1500 days.")
+    return {"country": effective_country(db, workspace), "holidays": holidays_between(db, workspace, from_, to)}
+
+
+@router.get("/holidays/settings")
+def holiday_settings_route(
+    db: Session = Depends(get_db),
+    workspace: Workspace = Depends(current_workspace),
+) -> dict:
+    return holiday_settings_out(db, workspace)
+
+
+@router.patch("/holidays/settings")
+def patch_holiday_settings_route(
+    body: HolidaySettingsIn,
+    db: Session = Depends(get_db),
+    member: WorkspaceMember = Depends(current_membership),
+    workspace: Workspace = Depends(current_workspace),
+) -> dict:
+    require_not_guest(member)
+    fields = body.model_fields_set
+    for name in ("country", "country2"):
+        if name in fields:
+            value = (getattr(body, name) or "").upper() if getattr(body, name) is not None else None
+            if value and not is_supported_country(value):
+                raise HTTPException(400, "Country not supported.")
+            setattr(workspace, f"holiday_{name}", value)
+    skips = set(workspace.holiday_skips or [])
+    if body.skip:
+        skips.add(body.skip)
+    if body.unskip:
+        skips.discard(body.unskip)
+    workspace.holiday_skips = sorted(skips)
+    db.commit()
+    db.refresh(workspace)
+    return holiday_settings_out(db, workspace)
 
 
 @router.post("/workspace/invites")

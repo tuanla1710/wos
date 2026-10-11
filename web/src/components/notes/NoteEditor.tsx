@@ -7,9 +7,11 @@ import { LectureTeach } from "@/components/notes/LectureTeach";
 import { NoteFindReplace } from "@/components/notes/NoteFindReplace";
 import { NoteMarkdown } from "@/components/notes/NoteMarkdown";
 import { NoteMenu } from "@/components/notes/NoteMenu";
+import { RichNoteEditor } from "@/components/notes/RichNoteEditor";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
-import { downloadTxt, readTxtFile } from "@/lib/noteFile";
+import { attachBundleImages, downloadMd, downloadTxt, downloadZip, NOTE_IMPORT_ACCEPT, readNoteFile } from "@/lib/noteFile";
+import { markdownFromPaste } from "@/lib/pasteHtml";
 import {
   CODE_LANGS,
   formatFileSize,
@@ -27,6 +29,7 @@ import {
 import type { NoteActivity, NoteKind, Task, WorkNote } from "@/lib/types";
 
 const KINDS: NoteKind[] = ["quick", "work", "meeting", "lecture"];
+const isVoiceClip = (f: { filename: string }) => /\.mp3$/i.test(f.filename);
 
 export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: (note: WorkNote) => void }) {
   const router = useRouter();
@@ -34,19 +37,23 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
   const guest = me?.workspace?.role === "guest";
   const area = useRef<HTMLTextAreaElement>(null);
   const file = useRef<HTMLInputElement>(null);
+  const importFile = useRef<HTMLInputElement>(null);
+  const [fileMsg, setFileMsg] = useState("");
   const skip = useRef(true);
+  const plainPaste = useRef(false);
   const inflight = useRef<Promise<WorkNote | void> | null>(null);
   const [note, setNote] = useState(initial);
   const [title, setTitle] = useState(initial.title);
   const [body, setBody] = useState(initial.body ?? "");
   const [kind, setKind] = useState<NoteKind>(initial.kind);
-  const [mode, setMode] = useState<"author" | "teach">(guest && initial.kind === "lecture" ? "teach" : "author");
+  const openLecture = initial.kind === "lecture" && (guest || !!initial.body?.trim());
+  const [mode, setMode] = useState<"author" | "teach">(openLecture ? "teach" : "author");
   const [lang, setLang] = useState(getLastCodeLang());
   const [tags, setTags] = useState((initial.tags ?? []).join(", "));
   const [taskId, setTaskId] = useState(initial.task_id ?? "");
   const [projectId, setProjectId] = useState(initial.project_id ?? "");
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(openLecture);
   const [status, setStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [history, setHistory] = useState<NoteActivity[]>([]);
   const [findOpen, setFindOpen] = useState(false);
@@ -55,6 +62,7 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
   const lecture = kind === "lecture";
   const teach = lecture && (guest || mode === "teach");
   const canEdit = !guest;
+  const rich = canEdit && !lecture;
 
   async function loadHistory() {
     const d = await api<{ activity: NoteActivity[] }>(`/api/notes/${initial.id}/activity`);
@@ -92,7 +100,7 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (teach) return;
+      if (teach || rich) return;
       const meta = e.metaKey || e.ctrlKey;
       if (meta && e.key.toLowerCase() === "f") {
         e.preventDefault();
@@ -109,7 +117,7 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [body, findOpen, teach]);
+  }, [body, findOpen, teach, rich]);
 
   useEffect(() => {
     function warn(e: BeforeUnloadEvent) {
@@ -197,6 +205,93 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
     apply(result.next, result.cursor);
   }
 
+  function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const md = markdownFromPaste(e.clipboardData, plainPaste.current);
+    plainPaste.current = false;
+    if (!md) return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const before = body.slice(0, start);
+    const lead = before && !before.endsWith("\n") && md.includes("\n") ? "\n" : "";
+    const text = lead + md;
+    apply(before + text + body.slice(end), start + text.length);
+  }
+
+  async function uploadFile(picked: File) {
+    const data = new FormData();
+    data.append("file", picked);
+    const row = await api<{ id: string }>(`/api/notes/${note.id}/attachments`, { method: "POST", body: data });
+    setNote(await api<WorkNote>(`/api/notes/${note.id}`));
+    void loadHistory().catch(() => {});
+    return row;
+  }
+
+  async function uploadImage(picked: File) {
+    const row = await uploadFile(picked);
+    return `/api/notes/${note.id}/attachments/${row.id}`;
+  }
+
+  async function exportAs(format: "zip" | "md" | "txt") {
+    setFileMsg("");
+    try {
+      if (format === "zip") await downloadZip(title, body);
+      else if (format === "md") downloadMd(title, body);
+      else downloadTxt(title, body);
+    } catch {
+      setFileMsg("Couldn’t export.");
+    }
+  }
+
+  async function importInto(picked: File) {
+    setFileMsg("");
+    try {
+      const bundle = await readNoteFile(picked);
+      if (body.trim() && !window.confirm(`Replace this note with “${picked.name}”?`)) return;
+      if (Object.keys(bundle.images).length) setFileMsg("Uploading images…");
+      const next = await attachBundleImages(bundle, uploadImage);
+      if (!title.trim() || title === "Untitled") setTitle(bundle.title);
+      setBody(next);
+      setFileMsg("");
+    } catch (err) {
+      setFileMsg(err instanceof Error ? err.message : "Couldn’t import.");
+    }
+  }
+
+  const fileTools = (
+    <>
+      <details className="relative">
+        <summary className="flex h-8 cursor-pointer list-none items-center rounded px-2 font-semibold text-muted hover:bg-hover hover:text-ink">Export</summary>
+        <div className="absolute left-0 top-9 z-20 w-56 rounded-lg border border-line bg-elev p-1 shadow-popover">
+          {(
+            [
+              ["zip", ".zip — Markdown + images"],
+              ["md", ".md — Markdown only"],
+              ["txt", ".txt — plain text"],
+            ] as const
+          ).map(([f, label]) => (
+            <button
+              key={f}
+              type="button"
+              className="block h-8 w-full rounded px-2 text-left text-[12px] hover:bg-hover"
+              onClick={(e) => {
+                (e.currentTarget.closest("details") as HTMLDetailsElement).open = false;
+                void exportAs(f);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </details>
+      <button type="button" className="h-8 rounded px-2 font-semibold text-muted hover:bg-hover hover:text-ink" onClick={() => importFile.current?.click()}>
+        Import
+      </button>
+      {fileMsg && <span className="ml-1 text-[12px] text-muted">{fileMsg}</span>}
+    </>
+  );
+
   function insertExerciseBlock() {
     const el = area.current;
     const start = el?.selectionStart ?? body.length;
@@ -211,13 +306,13 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
           <ArrowLeftGlyph size={15} />
         </button>
         <p className="text-[12px] text-muted">{status === "saved" ? "Saved" : status === "saving" ? "Saving…" : "Unsaved"}</p>
-        {canEdit && !teach && (
+        {canEdit && !teach && !rich && (
           <button type="button" className={`ml-auto h-8 rounded px-3 text-[12px] ${preview ? "bg-hover" : "text-muted"}`} onClick={() => setPreview((v) => !v)}>
             {preview ? "Edit" : "Preview"}
           </button>
         )}
         {canEdit && (
-          <button type="button" className={`${teach || preview ? "ml-auto" : ""} h-8 rounded-lg bg-accent px-3 text-[12px] font-semibold text-white`} onClick={() => void persist()}>
+          <button type="button" className={`${teach || preview || rich ? "ml-auto" : ""} h-8 rounded-lg bg-accent px-3 text-[12px] font-semibold text-white`} onClick={() => void persist()}>
             Save
           </button>
         )}
@@ -285,7 +380,9 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
 
       {teach && <LectureTeach title={title} body={body} onAuthor={canEdit ? () => setMode("author") : undefined} />}
 
-      {!teach && !preview && canEdit && (
+      {rich && <RichNoteEditor value={body} onChange={setBody} upload={uploadImage} onAttach={() => file.current?.click()} tools={fileTools} />}
+
+      {!teach && !preview && canEdit && !rich && (
         <>
           <div className="flex flex-wrap gap-1 text-[12px]">
             <Tool onClick={() => wrap("**")}>B</Tool>
@@ -295,9 +392,7 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
             <Tool onClick={() => prefix("- [ ] ")}>Checkbox</Tool>
             <Tool onClick={() => wrap("[", "](https://)")}>Link</Tool>
             <Tool onClick={() => file.current?.click()}>Attach</Tool>
-            <button type="button" className="h-8 rounded px-2 text-muted hover:bg-hover" onClick={() => downloadTxt(title, body)}>
-              Export
-            </button>
+            {fileTools}
             <button type="button" className={`h-8 rounded px-2 ${findOpen ? "bg-hover text-ink" : "text-muted hover:bg-hover"}`} onClick={() => openFind(false)}>
               Find
             </button>
@@ -341,12 +436,16 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
             ref={area}
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              plainPaste.current = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "v";
+            }}
+            onPaste={onPaste}
             placeholder="Write the note…"
             className={`min-h-[360px] w-full resize-none border-0 bg-transparent p-0 outline-none placeholder:text-faint ${lecture ? "font-mono text-sm leading-[22px]" : "text-base leading-7"}`}
           />
         </>
       )}
-      {!teach && preview && <NoteMarkdown src={body} />}
+      {!teach && preview && !rich && <NoteMarkdown src={body} />}
       {!teach && !preview && !canEdit && <NoteMarkdown src={body} />}
 
       <input
@@ -357,11 +456,7 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
           const picked = e.target.files?.[0];
           e.target.value = "";
           if (!picked) return;
-          const data = new FormData();
-          data.append("file", picked);
-          await api(`/api/notes/${note.id}/attachments`, { method: "POST", body: data });
-          setNote(await api<WorkNote>(`/api/notes/${note.id}`));
-          void loadHistory().catch(() => {});
+          await uploadFile(picked);
         }}
       />
 
@@ -404,7 +499,10 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
         <div>
           <p className="section-label">Files</p>
           <div className="mt-2 space-y-1 text-sm">
-            {note.files?.map((f) => (
+            {note.files?.some(isVoiceClip) && (
+              <p className="flex h-9 items-center text-muted">{note.files.filter(isVoiceClip).length} coach voice clips</p>
+            )}
+            {note.files?.filter((f) => !isVoiceClip(f)).map((f) => (
               <div key={f.id} className="flex h-9 items-center gap-2">
                 <a className="flex-1 truncate text-accent" href={`/api/notes/${note.id}/attachments/${f.id}`}>
                   {f.filename}
@@ -442,22 +540,17 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
       </div>
 
       {canEdit && (
-        <label className="text-[12px] text-muted">
-          Import .txt
-          <input
-            type="file"
-            accept=".txt,text/plain"
-            className="mt-1 block"
-            onChange={async (e) => {
-              const picked = e.target.files?.[0];
-              e.target.value = "";
-              if (!picked) return;
-              const parsed = await readTxtFile(picked);
-              if (!title || title === "Untitled") setTitle(parsed.title);
-              setBody(parsed.body);
-            }}
-          />
-        </label>
+        <input
+          ref={importFile}
+          type="file"
+          accept={NOTE_IMPORT_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            const picked = e.target.files?.[0];
+            e.target.value = "";
+            if (picked) void importInto(picked);
+          }}
+        />
       )}
     </div>
   );

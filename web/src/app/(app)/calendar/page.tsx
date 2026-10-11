@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeftGlyph, ChevronRightGlyph } from "@/components/icons/AppIcons";
 import { api, priorityLabel } from "@/lib/api";
-import type { CalendarEvent, Task } from "@/lib/types";
+import type { CalendarEvent, PublicHoliday, Task } from "@/lib/types";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
 
 function mondayOf(d: Date) {
@@ -28,6 +28,7 @@ export default function CalendarPage() {
   const [start, setStart] = useState(() => mondayOf(new Date()));
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState(iso(new Date()));
   const [allDay, setAllDay] = useState(true);
@@ -47,6 +48,8 @@ export default function CalendarPage() {
       const data = await api<{ tasks: Task[]; events: CalendarEvent[] }>(`/api/calendar?from=${from}&to=${to}`);
       setTasks(data.tasks);
       setEvents(data.events ?? []);
+      const hol = await api<{ holidays: PublicHoliday[] }>(`/api/holidays?from=${from}&to=${to}`).catch(() => ({ holidays: [] }));
+      setHolidays(hol.holidays);
     } catch {
       /* AppProvider handles session / API down */
     }
@@ -117,10 +120,13 @@ export default function CalendarPage() {
           const key = iso(d);
           const dayTasks = tasks.filter((t) => t.due_date === key);
           const dayEvents = events.filter((ev) => ev.event_date === key);
+          const dayHolidays = holidays.filter((h) => h.day === key);
+          const off = dayHolidays.some((h) => h.off);
+          const tone = off || d.getDay() === 0 ? "text-overdue" : d.getDay() === 6 ? "text-upcoming" : "text-muted";
           return (
             <div
               key={key}
-              className={`min-h-[280px] rounded-lg border p-2 ${key === today ? "border-accent bg-accent-soft" : "border-line bg-sidebar"}`}
+              className={`min-h-[280px] rounded-lg border p-2 ${key === today ? "border-accent bg-accent-soft" : off ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-line bg-sidebar"}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={async (e) => {
                 const id = e.dataTransfer.getData("text/plain");
@@ -129,9 +135,18 @@ export default function CalendarPage() {
                 await load();
               }}
             >
-              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-muted">
+              <p className={`mb-2 text-[12px] font-semibold uppercase tracking-[0.04em] ${tone}`}>
                 {d.toLocaleDateString("en-US", { weekday: "short" })} {d.getDate()}
               </p>
+              {dayHolidays.map((h) => (
+                <p
+                  key={`${h.kind}-${h.country}-${h.name}`}
+                  title={h.kind === "secondary" ? h.name_en : h.name}
+                  className={`mb-1 truncate text-[11px] leading-4 ${h.off ? "font-semibold text-overdue" : h.kind === "primary" ? "text-muted line-through" : "text-muted"}`}
+                >
+                  {h.kind === "secondary" ? `${h.country} · ${h.name}` : h.kind === "primary" ? h.name_en : h.name}
+                </p>
+              ))}
               {dayEvents.map((ev) => (
                 <div key={ev.id} className="grab-chip mb-1 w-full rounded-lg border-accent/30 bg-accent/10 px-2 py-1 text-left text-xs text-accent">
                   {ev.title}

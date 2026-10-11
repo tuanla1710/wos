@@ -36,7 +36,7 @@ def current_membership(
             wid = UUID(x_workspace_id)
         except ValueError as exc:
             raise HTTPException(400, "Invalid workspace") from exc
-        member = q.filter(WorkspaceMember.workspace_id == wid).first()
+        member = q.filter(WorkspaceMember.workspace_id == wid).first() or q.first()
     else:
         member = q.first()
     if not member:

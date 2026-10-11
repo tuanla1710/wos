@@ -11,6 +11,11 @@ from app.services.dates import work_days
 
 
 def holiday_dates(db: Session, workspace_id: UUID) -> set[date]:
+    from app.services.public_holidays import day_off_dates
+
+    workspace = db.get(Workspace, workspace_id)
+    if workspace:
+        return day_off_dates(db, workspace)
     rows = db.query(WorkspaceHoliday.day).filter(WorkspaceHoliday.workspace_id == workspace_id).all()
     return {row[0] for row in rows}
 

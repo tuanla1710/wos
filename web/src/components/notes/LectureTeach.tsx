@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeftGlyph, ArrowRightGlyph } from "@/components/icons/AppIcons";
+import { LectureCoach } from "@/components/notes/LectureCoach";
+import { LectureSlides } from "@/components/notes/LectureSlides";
 import { NoteMarkdown } from "@/components/notes/NoteMarkdown";
-import { beatPhases, beatVariant, lectureBeats, lectureMeta, outlineLabel, type BeatPhase } from "@/lib/noteMd";
+import { beatPhases, beatVariant, coachLines, lectureBeats, lectureMeta, outlineLabel, withoutCoach, type BeatPhase } from "@/lib/noteMd";
 
 const PHASE: Record<BeatPhase, { label: string; color: string; soft: string }> = {
   start: { label: "Start", color: "#57534E", soft: "#F5F5F4" },
@@ -28,10 +30,27 @@ export function LectureTeach({
   const meta = lectureMeta(body);
   const [beat, setBeat] = useState(1);
   const [full, setFull] = useState(false);
+  const [slides, setSlides] = useState(false);
+  const [visit, setVisit] = useState(0);
+
+  useEffect(() => {
+    const key = `coach-visit:${title}`;
+    let prev = { n: -1, at: 0 };
+    try {
+      prev = { ...prev, ...JSON.parse(window.localStorage.getItem(key) ?? "{}") };
+    } catch {}
+    const now = Date.now();
+    const n = now - prev.at > 30 * 60 * 1000 ? prev.n + 1 : Math.max(0, prev.n);
+    window.localStorage.setItem(key, JSON.stringify({ n, at: now }));
+    setVisit(n);
+  }, [title]);
   const rootRef = useRef<HTMLDivElement>(null);
   const total = beats.length;
   const index = total ? Math.min(Math.max(1, beat), total) : 0;
-  const current = total ? beats[index - 1] : null;
+  const raw = total ? beats[index - 1] : null;
+  const current = raw ? { ...raw, body: withoutCoach(raw.body) } : null;
+  const coach = raw ? coachLines(raw.body, visit) : [];
+  const hasCoach = beats.some((b) => coachLines(b.body).length > 0);
 
   useEffect(() => {
     if (total === 0) {
@@ -132,15 +151,26 @@ export function LectureTeach({
             </div>
           ) : null}
         </div>
-        <button
-          type="button"
-          className="h-9 rounded-lg border border-line px-3 text-sm font-medium hover:bg-hover"
-          onClick={toggleFull}
-          title="Present (F)"
-        >
-          {full ? "Exit present" : "Present"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover"
+            onClick={() => setSlides(true)}
+            title="Widescreen slides with the coach voice"
+          >
+            Slides
+          </button>
+          <button
+            type="button"
+            className="h-9 rounded-lg border border-line px-3 text-sm font-medium hover:bg-hover"
+            onClick={toggleFull}
+            title="Present (F)"
+          >
+            {full ? "Exit present" : "Present"}
+          </button>
+        </div>
       </div>
+      {slides && <LectureSlides title={title} body={body} visit={visit} onClose={() => setSlides(false)} />}
 
       <div className="flex gap-1" role="tablist" aria-label="Lesson progress">
         {beats.map((row, i) => {
@@ -212,6 +242,7 @@ export function LectureTeach({
         </nav>
 
         <div className="min-w-0">
+          {hasCoach && !slides && <LectureCoach lines={coach} beatKey={index} big={full} />}
           <section
             className={`overflow-hidden rounded-2xl border bg-white ${full ? "min-h-[60vh]" : "min-h-[420px]"}`}
             style={{ borderColor: variant === "pass" ? "#ABEFC6" : "#E4E2DB" }}

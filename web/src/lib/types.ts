@@ -37,6 +37,26 @@ export type Project = {
 };
 
 export type Holiday = { id: string; day: string; name: string };
+export type PublicHoliday = {
+  id?: string;
+  day: string;
+  name: string;
+  name_en: string;
+  kind: "primary" | "secondary" | "custom";
+  country: string;
+  off: boolean;
+};
+export type HolidaySettings = {
+  country: string | null;
+  country2: string | null;
+  effective: string;
+  effective_name: string;
+  detected: string;
+  detected_name: string;
+  timezone: string;
+  skips: string[];
+  countries: { code: string; name: string }[];
+};
 
 export type Me = {
   id: string;

@@ -488,7 +488,7 @@ def save_note_file(db: Session, workspace: Workspace, member: WorkspaceMember, u
     ctype = file.content_type or "application/octet-stream"
     name = file.filename or "file"
     ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-    if ctype not in ALLOWED and ext not in {"pdf", "png", "jpg", "jpeg", "webp", "gif", "txt", "md", "zip", "docx"}:
+    if ctype not in ALLOWED and ext not in {"pdf", "png", "jpg", "jpeg", "webp", "gif", "txt", "md", "zip", "docx", "mp3"}:
         raise HTTPException(400, "File type not allowed.")
     key = f"notes/{note.id}/{uuid4().hex}_{name}"
     dest = uploads_root() / key

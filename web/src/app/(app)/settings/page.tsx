@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, downloadBackup, restoreBackup } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
-import type { Holiday } from "@/lib/types";
+import type { Holiday, HolidaySettings, PublicHoliday } from "@/lib/types";
 
 export default function SettingsPage() {
   const { me, refresh } = useApp();
@@ -103,8 +103,10 @@ function HolidaysBlock() {
   return (
     <div className="space-y-3 paper-section">
       <p className="section-label">Holidays</p>
-      <p className="text-[12px] text-muted">Workdays skip weekends and these dates.</p>
-      {rows.length === 0 && <p className="text-[12px] text-muted">No holidays yet.</p>}
+      <PublicHolidaysBlock />
+      <p className="pt-2 text-[12px] font-semibold text-ink">Custom days off</p>
+      <p className="text-[12px] text-muted">Company days or one-off government days. Workdays skip weekends, public holidays and these dates.</p>
+      {rows.length === 0 && <p className="text-[12px] text-muted">No custom days yet.</p>}
       {rows.map((h) => (
         <div key={h.id} className="flex h-9 items-center gap-2">
           <span className="tabular-nums">{h.day}</span>
@@ -140,6 +142,127 @@ function HolidaysBlock() {
           Add
         </button>
       </form>
+    </div>
+  );
+}
+
+function browserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
+function PublicHolidaysBlock() {
+  const { refresh } = useApp();
+  const [settings, setSettings] = useState<HolidaySettings | null>(null);
+  const [list, setList] = useState<PublicHoliday[]>([]);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const tz = browserTimezone();
+
+  async function loadList(y = year) {
+    const d = await api<{ holidays: PublicHoliday[] }>(`/api/holidays?from=${y}-01-01&to=${y}-12-31`);
+    setList(d.holidays.filter((h) => h.kind !== "custom"));
+  }
+
+  useEffect(() => {
+    void api<HolidaySettings>("/api/holidays/settings").then(setSettings).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    void loadList(year).catch(() => {});
+  }, [year]);
+
+  async function save(patch: Record<string, string | null>) {
+    setSettings(await api<HolidaySettings>("/api/holidays/settings", { method: "PATCH", body: JSON.stringify(patch) }));
+    await loadList();
+    await refresh();
+  }
+
+  if (!settings) return null;
+  const name = (code: string) => settings.countries.find((c) => c.code === code)?.name ?? code;
+  const tzMismatch = tz && settings.timezone && tz !== settings.timezone;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="text-[12px] text-muted">
+          Country (red days)
+          <select
+            value={settings.country === null ? "auto" : settings.country}
+            onChange={(e) => void save({ country: e.target.value === "auto" ? null : e.target.value })}
+            className="mt-1 h-9 w-full rounded border border-line px-2 text-sm text-ink"
+          >
+            <option value="auto">Auto — {settings.detected ? name(settings.detected) : "not detected"} ({settings.timezone})</option>
+            <option value="">None</option>
+            {settings.countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-[12px] text-muted">
+          Also show (not days off)
+          <select
+            value={settings.country2 ?? ""}
+            onChange={(e) => void save({ country2: e.target.value || null })}
+            className="mt-1 h-9 w-full rounded border border-line px-2 text-sm text-ink"
+          >
+            <option value="">None</option>
+            {settings.countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {tzMismatch && (
+        <p className="text-[12px] text-muted">
+          This browser is in {tz}, your profile uses {settings.timezone}.{" "}
+          <button
+            type="button"
+            className="font-semibold text-accent"
+            onClick={async () => {
+              await api("/api/me", { method: "PATCH", body: JSON.stringify({ timezone: tz }) });
+              setSettings(await api<HolidaySettings>("/api/holidays/settings"));
+              await loadList();
+              await refresh();
+            }}
+          >
+            Use {tz}
+          </button>
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <button type="button" className="icon-btn h-8 w-8" onClick={() => setYear((y) => y - 1)}>
+          ‹
+        </button>
+        <span className="text-sm font-semibold tabular-nums">{year}</span>
+        <button type="button" className="icon-btn h-8 w-8" onClick={() => setYear((y) => y + 1)}>
+          ›
+        </button>
+        <span className="text-[12px] text-muted">{settings.effective ? `${settings.effective_name} public holidays` : "No country selected"}</span>
+      </div>
+      <div className="max-h-[320px] space-y-0.5 overflow-y-auto">
+        {list.length === 0 && <p className="text-[12px] text-muted">No public holidays.</p>}
+        {list.map((h) => (
+          <div key={`${h.kind}-${h.day}-${h.name}`} className="flex h-8 items-center gap-2 text-sm">
+            <span className={`w-24 tabular-nums ${h.off ? "text-overdue" : "text-muted"}`}>{h.day}</span>
+            <span className={`flex-1 truncate ${h.kind === "secondary" ? "text-muted" : h.off ? "" : "text-muted line-through"}`} title={h.name}>
+              {h.kind === "secondary" ? `${h.country} · ${h.name}` : `${h.name_en}${h.name !== h.name_en ? ` · ${h.name}` : ""}`}
+            </span>
+            {h.kind === "primary" && (
+              <label className="flex items-center gap-1 text-[12px] text-muted">
+                <input type="checkbox" checked={h.off} onChange={(e) => void save(e.target.checked ? { unskip: h.day } : { skip: h.day })} />
+                Day off
+              </label>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

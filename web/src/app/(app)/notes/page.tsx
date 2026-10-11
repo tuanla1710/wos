@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { NoteList } from "@/components/notes/NoteList";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
-import { readTxtFile } from "@/lib/noteFile";
+import { attachBundleImages, NOTE_IMPORT_ACCEPT, readNoteFile, uploadNoteImage } from "@/lib/noteFile";
 import type { WorkNote } from "@/lib/types";
 
 const FILTERS = [
@@ -63,7 +63,7 @@ export default function NotesPage() {
         <h1 className="text-xl font-semibold">Notes</h1>
         {!guest && (
           <div className="flex gap-2">
-            <input ref={file} type="file" accept=".txt,text/plain" multiple className="hidden" onChange={async (e) => {
+            <input ref={file} type="file" accept={NOTE_IMPORT_ACCEPT} multiple className="hidden" onChange={async (e) => {
               const list = e.target.files;
               e.target.value = "";
               if (!list?.length) return;
@@ -71,8 +71,12 @@ export default function NotesPage() {
               try {
                 let last = "";
                 for (const f of [...list]) {
-                  const parsed = await readTxtFile(f);
-                  const n = await api<WorkNote>("/api/notes", { method: "POST", body: JSON.stringify({ ...parsed, kind: "work" }) });
+                  const bundle = await readNoteFile(f);
+                  const n = await api<WorkNote>("/api/notes", { method: "POST", body: JSON.stringify({ title: bundle.title, body: bundle.body, kind: "work" }) });
+                  if (Object.keys(bundle.images).length) {
+                    const body = await attachBundleImages(bundle, (img) => uploadNoteImage(n.id, img));
+                    await api(`/api/notes/${n.id}`, { method: "PATCH", body: JSON.stringify({ body }) });
+                  }
                   last = n.id;
                 }
                 await load();
@@ -82,7 +86,7 @@ export default function NotesPage() {
               }
             }} />
             <button type="button" className="h-9 rounded px-3 text-sm hover:bg-hover" onClick={() => file.current?.click()}>
-              Import .txt
+              Import
             </button>
             <button type="button" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover" onClick={() => void create()}>
               Add Note

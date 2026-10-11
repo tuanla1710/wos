@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { usePathname, useRouter } from "next/navigation";
 import { BrandLockup } from "@/components/icons/AppIcons";
 import { api, ApiError, setWorkspaceId } from "./api";
-import type { Holiday, Me, Project, WorkspaceRef } from "./types";
+import type { Me, Project, PublicHoliday, WorkspaceRef } from "./types";
 
 type Ctx = {
   me: Me | null;
@@ -52,14 +52,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMe(user);
     if (user.workspace?.id) setWorkspaceId(user.workspace.id);
     const role = user.workspace?.role;
+    const year = new Date().getFullYear();
     const [p, spaces, hol] = await Promise.all([
       api<{ projects: Project[] }>("/api/projects"),
       api<{ workspaces: WorkspaceRef[] }>("/api/workspaces"),
-      api<{ holidays: Holiday[] }>("/api/workspace/holidays").catch(() => ({ holidays: [] })),
+      api<{ holidays: PublicHoliday[] }>(`/api/holidays?from=${year - 1}-01-01&to=${year + 2}-12-31`).catch(() => ({ holidays: [] })),
     ]);
     setProjects(p.projects);
     setWorkspaces(spaces.workspaces);
-    setHolidays(hol.holidays.map((h) => h.day));
+    setHolidays(hol.holidays.filter((h) => h.off).map((h) => h.day));
     if (role === "guest") {
       setInboxCount(0);
       setUnread(0);

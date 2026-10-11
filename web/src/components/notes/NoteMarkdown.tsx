@@ -54,9 +54,19 @@ export function NoteMarkdown({ src, teach, variant = "default" }: { src: string;
         </h2>
       );
     }
+    if (block.type === "h3") {
+      return (
+        <h3 key={i} className={`mt-3 font-semibold ${teach ? "text-[18px] leading-7" : "text-base leading-6"}`}>
+          <Inline text={block.text} />
+        </h3>
+      );
+    }
+    if (block.type === "hr") return <hr key={i} className="my-4 border-line" />;
+    if (block.type === "table") return <Table key={i} head={block.head} rows={block.rows} teach={teach} />;
+    const pad = "indent" in block && block.indent ? { marginLeft: block.indent * (teach ? 28 : 22) } : undefined;
     if (block.type === "check") {
       return (
-        <p key={i} className={`flex items-start gap-3 ${text} ${block.done ? "text-muted line-through" : ""}`}>
+        <p key={i} style={pad} className={`flex items-start gap-3 ${text} ${block.done ? "text-muted line-through" : ""}`}>
           <span
             className={`mt-[5px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded border-2 ${block.done ? "border-accent bg-accent text-white" : "border-faint bg-white"}`}
             aria-hidden
@@ -71,8 +81,11 @@ export function NoteMarkdown({ src, teach, variant = "default" }: { src: string;
     }
     if (block.type === "li") {
       return (
-        <p key={i} className={`flex gap-3 ${text}`}>
-          <span className={`shrink-0 rounded-full bg-faint ${teach ? "mt-[12px] h-[7px] w-[7px]" : "mt-[8px] h-[5px] w-[5px]"}`} aria-hidden />
+        <p key={i} style={pad} className={`flex gap-3 ${text}`}>
+          <span
+            className={`shrink-0 rounded-full ${block.indent ? "border border-faint" : "bg-faint"} ${teach ? "mt-[12px] h-[7px] w-[7px]" : "mt-[8px] h-[5px] w-[5px]"}`}
+            aria-hidden
+          />
           <span>
             <Inline text={block.text} />
           </span>
@@ -81,7 +94,7 @@ export function NoteMarkdown({ src, teach, variant = "default" }: { src: string;
     }
     if (block.type === "ol") {
       return (
-        <p key={i} className={`flex gap-3 ${text}`}>
+        <p key={i} style={pad} className={`flex gap-3 ${text}`}>
           <span
             className={`flex shrink-0 items-center justify-center rounded-full bg-hover font-semibold tabular-nums text-ink ${teach ? "mt-[3px] h-6 w-6 text-[13px]" : "mt-[1px] h-5 w-5 text-[11px]"}`}
           >
@@ -90,6 +103,19 @@ export function NoteMarkdown({ src, teach, variant = "default" }: { src: string;
           <span>
             <Inline text={block.text} />
           </span>
+        </p>
+      );
+    }
+    if (block.type === "say") {
+      return (
+        <p key={i} className={`flex gap-2 rounded-lg bg-[#FFF7E6] px-3 py-1.5 ${text}`}>
+          <span className="shrink-0 font-semibold text-[#B54708]">Coach:</span>
+          <span>{block.text}</span>
+          {block.variants > 1 && (
+            <span className="ml-auto shrink-0 self-center rounded-full bg-white px-2 text-[11px] text-muted" title="Other wordings play on later visits">
+              +{block.variants - 1}
+            </span>
+          )}
         </p>
       );
     }
@@ -148,7 +174,7 @@ function QuestionCard({ n, text }: { n: number; text: string }) {
 }
 
 function MistakeCard({ text }: { text: string }) {
-  const at = text.search(/\s(Bố|Hỏi):/);
+  const at = text.search(/\s(Bố|Hỏi|Dad|Ask):/);
   const problem = at > 0 ? text.slice(0, at).trim() : text;
   const fix = at > 0 ? text.slice(at).trim() : "";
   return (
@@ -213,16 +239,48 @@ function Callout({ kind, text, teach }: { kind: CalloutKind; text: string; teach
   );
 }
 
+function Table({ head, rows, teach }: { head: string[]; rows: string[][]; teach?: boolean }) {
+  const cell = `border-b border-line px-3 py-2 text-left align-top ${teach ? "text-[16px] leading-7" : "text-sm leading-[22px]"}`;
+  return (
+    <div className="overflow-x-auto rounded-lg border border-line">
+      <table className="w-full border-collapse">
+        <thead className="bg-hover">
+          <tr>
+            {head.map((c, j) => (
+              <th key={j} className={`${cell} font-semibold`}>
+                <Inline text={c} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, k) => (
+            <tr key={k} className="last:[&>td]:border-b-0">
+              {r.map((c, j) => (
+                <td key={j} className={cell}>
+                  <Inline text={c} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function Inline({ text }: { text: string }) {
   const nodes: ReactNode[] = [];
-  const re = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[([^\]]+)\]\((https?:[^)]+)\))/g;
+  const re = /(`[^`]+`|!\[([^\]]*)\]\(((?:https?:|\/api\/)[^)\s]+)\)|\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|\[([^\]]+)\]\((https?:[^)]+)\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
   while ((m = re.exec(text))) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m.index > last) nodes.push(unescapeMd(text.slice(last, m.index)));
     const tok = m[0];
-    if (tok.startsWith("`")) {
+    if (m[3]) {
+      nodes.push(<img key={key++} src={m[3]} alt={m[2]} className="my-2 block max-w-full rounded-lg border border-line" />);
+    } else if (tok.startsWith("`")) {
       nodes.push(
         <code key={key++} className="rounded bg-hover px-1 font-mono text-[0.85em]">
           {tok.slice(1, -1)}
@@ -232,15 +290,21 @@ function Inline({ text }: { text: string }) {
       nodes.push(<strong key={key++}>{tok.slice(2, -2)}</strong>);
     } else if (tok.startsWith("*")) {
       nodes.push(<em key={key++}>{tok.slice(1, -1)}</em>);
-    } else if (m[2] && m[3]) {
+    } else if (tok.startsWith("~~")) {
+      nodes.push(<del key={key++}>{tok.slice(2, -2)}</del>);
+    } else if (m[4] && m[5]) {
       nodes.push(
-        <a key={key++} className="text-accent underline" href={m[3]} target="_blank" rel="noreferrer">
-          {m[2]}
+        <a key={key++} className="text-accent underline" href={m[5]} target="_blank" rel="noreferrer">
+          {unescapeMd(m[4])}
         </a>,
       );
     }
     last = m.index + tok.length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) nodes.push(unescapeMd(text.slice(last)));
   return <>{nodes}</>;
+}
+
+function unescapeMd(text: string) {
+  return text.replace(/\\([\\`*_{}[\]()#+\-.!~|<>])/g, "$1");
 }

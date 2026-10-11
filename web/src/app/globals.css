@@ -184,6 +184,91 @@
     background: #d9e8e6;
     color: #1d4e4a;
   }
+
+  .rich-note {
+    @apply text-base leading-7 text-ink;
+  }
+  .rich-note > * + * {
+    margin-top: 0.5rem;
+  }
+  .rich-note h1 {
+    @apply mt-6 text-[28px] font-semibold leading-9 tracking-tight;
+  }
+  .rich-note h2 {
+    @apply mt-5 text-[22px] font-semibold leading-8;
+  }
+  .rich-note h3 {
+    @apply mt-4 text-lg font-semibold leading-7;
+  }
+  .rich-note ul {
+    @apply list-disc pl-6;
+  }
+  .rich-note ol {
+    @apply list-decimal pl-6;
+  }
+  .rich-note li > p {
+    margin: 0;
+  }
+  .rich-note ul[data-type="taskList"] {
+    @apply list-none pl-1;
+  }
+  .rich-note ul[data-type="taskList"] li {
+    @apply flex items-start gap-2;
+  }
+  .rich-note ul[data-type="taskList"] li > label {
+    @apply mt-[5px] shrink-0;
+  }
+  .rich-note ul[data-type="taskList"] li > div {
+    @apply flex-1;
+  }
+  .rich-note ul[data-type="taskList"] li[data-checked="true"] > div {
+    @apply text-muted line-through;
+  }
+  .rich-note blockquote {
+    @apply border-l-4 border-line pl-4 text-muted;
+  }
+  .rich-note code {
+    @apply rounded bg-hover px-1 font-mono text-[0.85em];
+  }
+  .rich-note pre {
+    @apply overflow-x-auto rounded-lg bg-hover px-4 py-3 font-mono text-[13px] leading-5;
+  }
+  .rich-note pre code {
+    @apply bg-transparent p-0 text-[13px];
+  }
+  .rich-note a {
+    @apply text-accent underline;
+  }
+  .rich-note hr {
+    @apply my-5 border-line;
+  }
+  .rich-note img {
+    @apply my-2 max-w-full rounded-lg border border-line;
+  }
+  .rich-note img.ProseMirror-selectednode {
+    @apply outline outline-2 outline-accent;
+  }
+  .rich-note table {
+    @apply w-full border-collapse overflow-hidden rounded-lg text-sm;
+  }
+  .rich-note th,
+  .rich-note td {
+    @apply border border-line px-3 py-2 text-left align-top;
+  }
+  .rich-note th {
+    @apply bg-hover font-semibold;
+  }
+  .rich-note td > p,
+  .rich-note th > p {
+    margin: 0;
+  }
+  .rich-note .selectedCell {
+    @apply bg-accent-soft;
+  }
+  .rich-note p.is-editor-empty:first-child::before {
+    @apply pointer-events-none float-left h-0 text-faint;
+    content: attr(data-placeholder);
+  }
 }
 
 @layer utilities {

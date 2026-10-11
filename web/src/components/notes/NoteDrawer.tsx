@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { MEETING_SKELETON, LECTURE_SKELETON, kindLabel } from "@/lib/noteMd";
+import { markdownFromPaste } from "@/lib/pasteHtml";
 import type { NoteKind, WorkNote } from "@/lib/types";
 
 export function NoteDrawer({
@@ -94,7 +95,17 @@ export function NoteDrawer({
           className="mt-4 h-10 w-full rounded border border-line px-3 text-sm"
         />
         {kind !== "quick" && (
-          <textarea value={more} onChange={(e) => setMore(e.target.value)} placeholder="Write the note…" className={`mt-3 min-h-[220px] w-full rounded border border-line p-3 text-sm ${kind === "lecture" ? "font-mono" : ""}`} />
+          <textarea
+            value={more}
+            onChange={(e) => setMore(e.target.value)}
+            onPaste={(e) => {
+              const md = markdownFromPaste(e.clipboardData, false);
+              if (!md) return;
+              e.preventDefault();
+              const el = e.currentTarget;
+              setMore(more.slice(0, el.selectionStart) + md + more.slice(el.selectionEnd));
+            }}
+            placeholder="Write the note…" className={`mt-3 min-h-[220px] w-full rounded border border-line p-3 text-sm ${kind === "lecture" ? "font-mono" : ""}`} />
         )}
         {kind === "quick" && (
           <button type="button" className="mt-3 text-left text-[12px] text-muted underline" onClick={() => setKind("work")}>

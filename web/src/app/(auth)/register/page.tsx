@@ -33,6 +33,7 @@ export default function RegisterPage() {
               return;
             }
             try {
+              localStorage.removeItem("workspaceId");
               const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul";
               await api("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, password, timezone: tz }) });
               router.replace("/");

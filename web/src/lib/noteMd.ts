@@ -86,14 +86,54 @@ export type BeatVariant = "objective" | "story" | "questions" | "mistakes" | "pa
 export type MdBlock =
   | { type: "h1"; text: string }
   | { type: "h2"; text: string }
+  | { type: "h3"; text: string }
   | { type: "p"; text: string }
-  | { type: "li"; text: string }
-  | { type: "ol"; n: number; text: string }
+  | { type: "li"; text: string; indent: number }
+  | { type: "ol"; n: number; text: string; indent: number }
   | { type: "quote"; text: string }
-  | { type: "check"; text: string; done: boolean }
+  | { type: "say"; text: string; audio: string; variants: number }
+  | { type: "check"; text: string; done: boolean; indent: number }
   | { type: "code"; lang: string; code: string }
   | { type: "callout"; kind: CalloutKind; text: string }
+  | { type: "table"; head: string[]; rows: string[][] }
+  | { type: "hr" }
   | { type: "spacer" };
+
+/** `> SAY: text` or `> SAY(/api/…mp3 url): text` — a line the virtual coach speaks. A trailing `[wait]` pauses for the child. */
+export const SAY_LINE = /^> SAY(?:\(([^)\s]+)\))?:\s*(.+)$/;
+
+/** `> SLIDE` ends a slide early, so the coach lines before it get a title-only slide. */
+export const SLIDE_BREAK = /^> SLIDE\s*$/;
+
+export type CoachLine = { text: string; audio: string; wait: "" | "answer" | "task" };
+
+/** Variants are separated by ` || ` (audio urls by `|`); `visit` picks a different wording each time the lesson is opened. */
+export function coachLine(audio: string, raw: string, visit = 0): CoachLine & { variants: number } {
+  const texts = raw.split(/\s+\|\|\s+/);
+  const audios = audio.split("|");
+  const k = visit % texts.length;
+  const pick = texts[k];
+  const task = /\s*\[wait\]\s*$/i.test(pick);
+  const text = pick.replace(/\s*\[wait\]\s*$/i, "").trim();
+  return { audio: audios[k] ?? audios[0] ?? "", text, wait: task ? "task" : /\?\s*$/.test(text) ? "answer" : "", variants: texts.length };
+}
+
+export function coachLines(body: string, visit = 0): CoachLine[] {
+  const out: CoachLine[] = [];
+  for (const line of body.split("\n")) {
+    const m = SAY_LINE.exec(line);
+    if (m) out.push(coachLine(m[1] ?? "", m[2], visit));
+  }
+  return out;
+}
+
+export function withoutCoach(body: string) {
+  return body
+    .split("\n")
+    .filter((line) => !SAY_LINE.test(line) && !SLIDE_BREAK.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
 
 let lastCodeLang: CodeLang = "python";
 
@@ -195,6 +235,7 @@ const PHASE_OF: Record<string, BeatPhase> = {
   today: "start",
   note: "start",
   "parent prep": "start",
+  words: "start",
   rules: "start",
   "choose one": "start",
   story: "hook",
@@ -256,6 +297,58 @@ export function beatPhases(beats: LectureBeat[]): BeatPhase[] {
   });
 }
 
+export type LectureSlide = {
+  beat: number;
+  title: string;
+  phase: BeatPhase;
+  lines: CoachLine[];
+  images: { alt: string; src: string }[];
+  text: string;
+};
+
+const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)\s*$/;
+
+/** Splits each beat into slides: a run of SAY lines plus the content that follows it, up to the next SAY line. */
+export function lectureSlides(body: string, visit = 0): LectureSlide[] {
+  const beats = lectureBeats(body);
+  const phases = beatPhases(beats);
+  const out: LectureSlide[] = [];
+  beats.forEach((b, bi) => {
+    const start = out.length;
+    let lines: CoachLine[] = [];
+    let content: string[] = [];
+    const flush = () => {
+      const filled = content.some((l) => l.trim());
+      if (!lines.length && !filled) return;
+      const images: LectureSlide["images"] = [];
+      const rest: string[] = [];
+      for (const l of content.join("\n").replace(/```scratch\n[\s\S]*?\n```/g, "").split("\n")) {
+        const m = IMAGE_LINE.exec(l.trim());
+        if (m) images.push({ alt: m[1], src: m[2] });
+        else rest.push(l);
+      }
+      out.push({ beat: bi + 1, title: b.title, phase: phases[bi], lines, images, text: rest.join("\n").replace(/\n{3,}/g, "\n\n").trim() });
+      lines = [];
+      content = [];
+    };
+    for (const line of b.body.split("\n")) {
+      if (SLIDE_BREAK.test(line)) {
+        flush();
+        continue;
+      }
+      const say = SAY_LINE.exec(line);
+      if (say) {
+        if (content.some((l) => l.trim())) flush();
+        content = [];
+        lines.push(coachLine(say[1] ?? "", say[2], visit));
+      } else content.push(line);
+    }
+    flush();
+    if (out.length === start) out.push({ beat: bi + 1, title: b.title, phase: phases[bi], lines: [], images: [], text: "" });
+  });
+  return out;
+}
+
 export function lectureMetaLabel(meta: LectureMeta) {
   return [meta.level, meta.duration, meta.language].filter(Boolean).join(" · ");
 }
@@ -287,17 +380,28 @@ export function parseMarkdownBlocks(src: string): MdBlock[] {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    if (line.startsWith("```")) {
-      const raw = line.slice(3).trim().toLowerCase();
+    if (line.trimStart().startsWith("```")) {
+      const raw = line.trimStart().slice(3).trim().toLowerCase();
       const lang = raw.replace(/[^a-z0-9_-]/g, "") || "text";
       const buf: string[] = [];
       i += 1;
-      while (i < lines.length && !lines[i].startsWith("```")) {
+      while (i < lines.length && !lines[i].trimStart().startsWith("```")) {
         buf.push(lines[i]);
         i += 1;
       }
       if (i < lines.length) i += 1;
       out.push({ type: "code", lang, code: buf.join("\n") });
+      continue;
+    }
+    if (SLIDE_BREAK.test(line)) {
+      i += 1;
+      continue;
+    }
+    const say = SAY_LINE.exec(line);
+    if (say) {
+      const c = coachLine(say[1] ?? "", say[2]);
+      out.push({ type: "say", audio: c.audio, text: c.text, variants: c.variants });
+      i += 1;
       continue;
     }
     const call = /^> (TIP|WARNING|PITFALL):\s?(.*)$/i.exec(line);
@@ -322,25 +426,49 @@ export function parseMarkdownBlocks(src: string): MdBlock[] {
       i += 1;
       continue;
     }
-    if (/^- \[[ xX]\] /.test(line)) {
-      out.push({ type: "check", done: /^- \[[xX]\] /.test(line), text: line.replace(/^- \[[ xX]\] /, "") });
+    const h3 = /^#{3,6} (.*)$/.exec(line);
+    if (h3) {
+      out.push({ type: "h3", text: h3[1] });
       i += 1;
       continue;
     }
-    if (line.startsWith("- ")) {
-      out.push({ type: "li", text: line.slice(2) });
+    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      out.push({ type: "hr" });
       i += 1;
       continue;
     }
-    const ol = /^(\d{1,3})\. (.*)$/.exec(line);
+    if (line.startsWith("|") && i + 1 < lines.length && /^\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      const head = tableCells(line);
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length && lines[i].startsWith("|")) {
+        rows.push(tableCells(lines[i]));
+        i += 1;
+      }
+      out.push({ type: "table", head, rows });
+      continue;
+    }
+    const check = /^(\s*)[-*+] \[([ xX])\] (.*)$/.exec(line);
+    if (check) {
+      out.push({ type: "check", done: check[2] !== " ", text: check[3], indent: depth(check[1]) });
+      i += 1;
+      continue;
+    }
+    const li = /^(\s*)[-*+] (.*)$/.exec(line);
+    if (li) {
+      out.push({ type: "li", text: li[2], indent: depth(li[1]) });
+      i += 1;
+      continue;
+    }
+    const ol = /^(\s*)(\d{1,3})[.)] (.*)$/.exec(line);
     if (ol) {
-      out.push({ type: "ol", n: Number(ol[1]), text: ol[2] });
+      out.push({ type: "ol", n: Number(ol[2]), text: ol[3], indent: depth(ol[1]) });
       i += 1;
       continue;
     }
     if (line.startsWith(">")) {
       const parts: string[] = [];
-      while (i < lines.length && lines[i].startsWith(">") && !/^> (TIP|WARNING|PITFALL):/i.test(lines[i])) {
+      while (i < lines.length && lines[i].startsWith(">") && !/^> (TIP|WARNING|PITFALL):/i.test(lines[i]) && !SAY_LINE.test(lines[i])) {
         parts.push(lines[i].replace(/^>\s?/, ""));
         i += 1;
       }
@@ -358,6 +486,19 @@ export function parseMarkdownBlocks(src: string): MdBlock[] {
   return out;
 }
 
+function depth(spaces: string) {
+  return Math.min(4, Math.floor(spaces.replace(/\t/g, "  ").length / 2));
+}
+
+function tableCells(line: string) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split(/(?<!\\)\|/)
+    .map((c) => c.replace(/\\\|/g, "|").trim());
+}
+
 function esc(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -367,11 +508,21 @@ export function renderMarkdown(src: string) {
     .map((block) => {
       if (block.type === "h1") return `<h1 class="mb-2 text-lg font-semibold">${inline(esc(block.text))}</h1>`;
       if (block.type === "h2") return `<h2 class="mb-1 mt-3 text-sm font-semibold">${inline(esc(block.text))}</h2>`;
-      if (block.type === "check") {
-        return `<p class="flex gap-2 text-sm ${block.done ? "text-muted line-through" : ""}"><span>${block.done ? "[x]" : "[ ]"}</span><span>${inline(esc(block.text))}</span></p>`;
+      if (block.type === "h3") return `<h3 class="mt-2 text-sm font-semibold">${inline(esc(block.text))}</h3>`;
+      if (block.type === "hr") return `<hr class="my-3 border-line" />`;
+      if (block.type === "table") {
+        const cell = (tag: string, c: string) => `<${tag} class="border border-line px-2 py-1 text-left">${inline(esc(c))}</${tag}>`;
+        const head = `<tr>${block.head.map((c) => cell("th", c)).join("")}</tr>`;
+        const rows = block.rows.map((r) => `<tr>${r.map((c) => cell("td", c)).join("")}</tr>`).join("");
+        return `<table class="my-2 border-collapse text-sm">${head}${rows}</table>`;
       }
-      if (block.type === "li") return `<p class="text-sm">• ${inline(esc(block.text))}</p>`;
-      if (block.type === "ol") return `<p class="text-sm"><span class="font-semibold tabular-nums">${block.n}.</span> ${inline(esc(block.text))}</p>`;
+      const pad = "indent" in block && block.indent ? ` style="margin-left:${block.indent * 20}px"` : "";
+      if (block.type === "check") {
+        return `<p class="flex gap-2 text-sm ${block.done ? "text-muted line-through" : ""}"${pad}><span>${block.done ? "[x]" : "[ ]"}</span><span>${inline(esc(block.text))}</span></p>`;
+      }
+      if (block.type === "li") return `<p class="text-sm"${pad}>• ${inline(esc(block.text))}</p>`;
+      if (block.type === "ol") return `<p class="text-sm"${pad}><span class="font-semibold tabular-nums">${block.n}.</span> ${inline(esc(block.text))}</p>`;
+      if (block.type === "say") return `<p class="text-sm leading-6"><strong>Coach:</strong> ${inline(esc(block.text))}</p>`;
       if (block.type === "quote") return `<blockquote class="my-2 border-l-[3px] border-line pl-3 text-sm italic text-muted">${inline(esc(block.text))}</blockquote>`;
       if (block.type === "code") {
         return `<pre class="overflow-x-auto rounded-lg bg-hover p-3 font-mono text-[13px] leading-5"><code>${esc(block.code)}</code></pre>`;
@@ -390,7 +541,9 @@ export function renderMarkdown(src: string) {
 function inline(text: string) {
   return text
     .replace(/`([^`]+)`/g, '<code class="rounded bg-hover px-1 font-mono text-[12px]">$1</code>')
+    .replace(/!\[([^\]]*)\]\(((?:https?:|\/api\/)[^)\s]+)\)/g, '<img src="$2" alt="$1" class="my-2 block max-w-full rounded" />')
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/~~(.+?)~~/g, "<del>$1</del>")
     .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a class="text-accent underline" href="$2" target="_blank" rel="noreferrer">$1</a>');
 }
