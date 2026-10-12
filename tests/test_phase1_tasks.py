@@ -11,9 +11,19 @@ def test_q1_title_only_lands_in_inbox(user):
     assert inbox[0]["title"] == "Buy lamp"
 
 
-def test_q3_empty_title(user):
+def test_q3_empty_title_uses_stamp(user):
     res = user.post("/api/tasks", json={"title": "   "})
-    assert res.status_code == 422 or res.status_code == 400
+    assert res.status_code == 200
+    title = res.json()["title"]
+    assert title.count("_") == 1
+    assert title[:10].count("-") == 2
+
+
+def test_task_stamp_includes_project(user):
+    project = user.post("/api/projects", json={"name": "RAN Platform"}).json()
+    task = user.post("/api/tasks", json={"project_id": project["id"]}).json()
+    assert task["title"].endswith("_RAN_Platform")
+    assert task["is_inbox"] is False
 
 
 def test_i3_title_priority_stays_inbox(user):

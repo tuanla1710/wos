@@ -179,11 +179,8 @@ Empty Teach (không có `##`):
 
 | Từ | Kết quả |
 |---|---|
-| Notes → Add Note → chọn Lecture | kind=lecture, skeleton nếu body trống |
+| Top bar `+ Note` → full editor → chọn Lecture | kind=lecture, skeleton nếu body trống |
 | Notes library chip `Lecture` | filter `kind=lecture` (API `kind=` đã có) |
-| Project Add Note | vẫn work. User đổi sang Lecture sau |
-| Task Add Note | vẫn quick. Không mặc định lecture |
-| Global `+` | vẫn Task |
 
 Empty filter Lecture:
 
@@ -195,7 +192,7 @@ Empty filter Lecture:
 
 ### 7.1 Soạn buổi mới
 
-1. `/notes` → Add Note.
+1. Top bar `+ Note` → full editor.
 2. Chip **Lecture**. Skeleton hiện.
 3. Đổi title. Gõ Objective / Step / Exercise. Fence code.
 4. Optional: gắn project (môn), task (homework), tags.
@@ -263,7 +260,7 @@ Body 200 KB giữ. Lecture dài: cắt buổi, không nâng limit.
 
 | ID | Setup | Action | Expected |
 |---|---|---|---|
-| L1 | Notes | Add Note, chip Lecture, body trống | Skeleton §4. Kind `lecture` |
+| L1 | Notes | Top bar `+ Note` → full editor, chip Lecture, body trống | Skeleton §4. Kind `lecture` |
 | L2 | Lecture có chữ | Đổi sang Work rồi Lecture lại | Body không bị ghi đè skeleton |
 | L3 | Author | Nút Code, chọn `print(1)` | Fence `python` (hoặc lang đang chọn) |
 | L4 | Author Preview | Fence + `> TIP:` | Code block + callout. Không raw fence |

@@ -13,8 +13,8 @@ Không brand book. Không illustration. Không marketing site.
 - Một cột + sidebar. Không card grid Notion.
 - Màu = trạng thái, không trang trí.
 - **UI copy: English.** Docs nội bộ tiếng Việt.
-- Working name: `Work OS`. Chưa lock brand. Lockup: ô accent `#1D4E4A` + check, chữ `Work OS` 14/600 sidebar · 20/600 auth.
-- Emoji trong mock cũ là placeholder. **App dùng custom glyphs `currentColor`, không emoji, không icon nhiều màu.**
+- Working name: `Work OS`. Lockup: ô navy gradient + check (cửa sổ OS), chữ `Work` ink + `OS` accent. 14/600 sidebar · 20/600 auth.
+- Emoji trong mock cũ là placeholder. **App dùng custom glyphs.** Nav / Home count: tinted well từ palette sẵn (accent, upcoming, overdue, due-today, done). Không emoji, không rainbow ngoài token.
 - Theme: giấy sáng kiểu Notion. Không HUD / glass / glow.
 
 ---
@@ -26,7 +26,7 @@ Không brand book. Không illustration. Không marketing site.
 | Sidebar | 256px, fixed, full height, `#F7F6F3` |
 | Main | `1fr`, nền trắng. Home / Review / Inbox / Detail: padding 32px, max-width 880px, center trong main |
 | Wide | My Tasks / Calendar / Project Tasks: padding 24px, full width còn lại |
-| Top bar (main) | height 56px, title trái, Search + `+ Task` phải |
+| Top bar (main) | height 56px, title trái, Search + `+ Note` `+ Task` phải |
 | Quick Add | Modal 440px, center viewport |
 | Search | Popover 480px, align phải dưới Search button |
 | Breakpoint | `< 768px`: sidebar drawer. Usable, không optimize phone |
@@ -103,8 +103,8 @@ Một theme sáng. Không dark mode.
 | `text` | `#1C1917` | Chính |
 | `text-muted` | `#78716C` | Meta, section |
 | `text-faint` | `#A8A29E` | Placeholder |
-| `accent` | `#1D4E4A` | Primary button, link, focus ring, pin |
-| `accent-soft` | `#D9E8E6` | Today highlight trên Calendar |
+| `accent` | `#1B365D` | Primary button, link, focus ring, pin |
+| `accent-soft` | `#E4EAF3` | Today highlight trên Calendar |
 | `overdue` | `#B42318` | Due trễ, Inbox badge, destructive |
 | `due-today` | `#C4320A` | Due hôm nay |
 | `upcoming` | `#175CD3` | Upcoming count |
@@ -159,7 +159,7 @@ Không emoji trong UI. Mock ASCII được giữ icon chữ cho dễ đọc.
 | Drag calendar | không handle; cursor `grab` / `grabbing` |
 | External / empty | không icon trang trí |
 
-Sidebar: icon 16 + gap 8 + label. Không icon nhiều màu.
+Sidebar: tinted well 22 + gap 8 + label. Màu well ∈ token §5, không invent hex mới.
 
 ---
 
@@ -321,7 +321,8 @@ Mọi string user thấy. Không Việt trên UI.
 | Sidebar groups | `WORKFLOW` · `PROJECTS` |
 | Nav | `Home` `Inbox` `My Tasks` `Calendar` `Review` `Statistics` `Settings` |
 | New project | `New project` |
-| Header button | `+ Task` |
+| Header buttons | `+ Note` `+ Task` |
+| Top bar account | `Logged in as` · `{name}` · `Log out` |
 | Search placeholder | `Search` |
 | Document title | `Work OS` |
 
@@ -391,7 +392,7 @@ Mọi string user thấy. Không Việt trên UI.
 | Register | `Create account` `Name` `Email` `Password` `Confirm password` `Already have an account?` |
 | Forgot | Không link. Không câu “Phase 1…” trên UI — form chỉ login/register |
 | Auth error | `Email or password is wrong.` |
-| Title empty | `Title can’t be empty.` |
+| Title empty | Prefill `YYYY-MM-DD_HH-MM` |
 | Project name empty | `Project name can’t be empty.` |
 | Password short | `Password must be at least 8 characters.` |
 | Email taken | `Email is already in use.` |
@@ -440,11 +441,12 @@ Kanban headers: `TODO` `IN PROGRESS` `BLOCKED` `DONE`.
 
 | Mục | Phase 1 |
 |---|---|
-| Register | name, email, password ≥ 8, confirm |
+| Register | name, email, phone, password ≥ 8, confirm |
 | Login | email, password |
 | Logout | Settings, text button `Log out` |
 | Session | httpOnly cookie, 30 ngày, sliding |
-| Verify / reset / OAuth / 2FA | Không |
+| Phone verify | Bắt buộc. OTP 6 số, trang `/verify-phone`. Local `console` hiện mã; production Twilio SMS |
+| Reset / OAuth / 2FA | Không |
 
 Trang `/login` `/register`. Form 360px, center, `bg`. Lockup mark accent + `Work OS` 20/600. Sau login → Home.
 
@@ -457,7 +459,7 @@ Trang `/login` `/register`. Form 360px, center, `bg`. Lockup mark accent + `Work
 - Skeleton screens, illustration, mascot
 - Animation > 120ms, page transition
 - Marketing landing trong app
-- Emoji icon, multi-color sidebar icons
+- Emoji icon, rainbow sidebar icons ngoài token
 - `/` shortcut bắt buộc (optional)
 
 ---

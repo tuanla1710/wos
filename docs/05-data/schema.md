@@ -41,6 +41,10 @@ Mọi task thuộc `workspace_id`. Project chỉ là nhóm tùy chọn.
 | password_hash | text | NOT NULL |
 | name | text | NOT NULL |
 | timezone | text | NOT NULL, IANA, default `Asia/Seoul` |
+| is_admin | boolean | NOT NULL default false — platform admin, not workspace role |
+| disabled_at | timestamptz | nullable — set when an admin disables the account |
+| phone | citext | UNIQUE when set, E.164 |
+| phone_verified_at | timestamptz | nullable — required before using the app |
 | created_at | timestamptz | NOT NULL default now() |
 | updated_at | timestamptz | NOT NULL default now() |
 
@@ -85,6 +89,7 @@ Signup: 1 row, `role = owner`. UI Phase 1 không đọc role khác.
 | id | uuid | PK |
 | workspace_id | uuid | NOT NULL → workspaces.id ON DELETE CASCADE |
 | name | text | NOT NULL |
+| key | text | UNIQUE per workspace — issue prefix, e.g. `RP` |
 | archived_at | timestamptz | NULL |
 | created_at | timestamptz | NOT NULL default now() |
 | updated_at | timestamptz | NOT NULL default now() |

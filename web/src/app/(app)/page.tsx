@@ -106,9 +106,9 @@ export default function HomePage() {
                   <div className="mt-3">
                     <p className="px-4 pt-3 text-[12px] font-semibold uppercase text-muted">Suggested</p>
                     {data.suggestions.map((t) => (
-                      <TaskRow key={t.id} task={t} onChange={() => void load()} />
+                      <TaskRow key={t.id} task={t} peers={data.suggestions} onChange={() => void load()} />
                     ))}
-                    <button type="button" onClick={() => void applySuggestions()} className="m-3 h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover">
+                    <button type="button" onClick={() => void applySuggestions()} className="btn-primary m-3">
                       Use these suggestions
                     </button>
                   </div>
@@ -117,7 +117,7 @@ export default function HomePage() {
             ) : (
               <div className="mt-3">
                 {data.focus.map((t) => (
-                  <TaskRow key={t.id} task={t} onChange={() => void load()} />
+                  <TaskRow key={t.id} task={t} peers={data.focus} onChange={() => void load()} />
                 ))}
               </div>
             )}
@@ -173,10 +173,10 @@ export default function HomePage() {
               );
             })}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setPicker(false)} className="h-9 px-3 text-sm">
+              <button type="button" onClick={() => setPicker(false)} className="btn-ghost">
                 Cancel
               </button>
-              <button type="button" onClick={() => void saveFocus()} className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover">
+              <button type="button" onClick={() => void saveFocus()} className="btn-primary">
                 Save
               </button>
             </div>
@@ -202,7 +202,7 @@ function CountCard({
 }) {
   return (
     <Link href={href} className="rounded-lg px-3 py-3 transition hover:bg-hover">
-      <IconTile name={icon} size={20} className="text-muted" />
+      <IconTile name={icon} size={24} />
       <p className={`mt-2 text-xl font-semibold tabular-nums leading-7 ${tone}`}>{value}</p>
       <p className="text-[12px] text-muted">{label}</p>
     </Link>

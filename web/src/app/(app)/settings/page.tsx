@@ -1,14 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, downloadBackup, restoreBackup } from "@/lib/api";
+import { APP_NAME, copyrightLine, versionLine } from "@/lib/appInfo";
 import { useApp } from "@/lib/AppContext";
-import type { Holiday, HolidaySettings, PublicHoliday } from "@/lib/types";
+import type { AdminUser, Holiday, HolidaySettings, PublicHoliday } from "@/lib/types";
 
 export default function SettingsPage() {
   const { me, refresh } = useApp();
-  const router = useRouter();
   const [name, setName] = useState(me?.name ?? "");
   const [timezone, setTimezone] = useState(me?.timezone ?? "Asia/Seoul");
   const [ws, setWs] = useState(me?.workspace.name ?? "");
@@ -31,6 +30,10 @@ export default function SettingsPage() {
           <input value={me.email} disabled className="mt-1 h-9 w-full rounded border border-line bg-hover px-3 text-muted" />
         </label>
         <label className="block">
+          Phone
+          <input value={me.phone ?? ""} disabled className="mt-1 h-9 w-full rounded border border-line bg-hover px-3 text-muted" />
+        </label>
+        <label className="block">
           Timezone
           <input value={timezone} onChange={(e) => setTimezone(e.target.value)} className="mt-1 h-9 w-full rounded border border-line px-3" />
         </label>
@@ -40,7 +43,7 @@ export default function SettingsPage() {
         </label>
         <button
           type="button"
-          className="h-9 rounded-lg bg-accent px-3 font-semibold text-white hover:bg-accent-hover"
+          className="btn-primary"
           onClick={async () => {
             await api("/api/me", { method: "PATCH", body: JSON.stringify({ name, timezone }) });
             await api("/api/workspace", { method: "PATCH", body: JSON.stringify({ name: ws }) });
@@ -51,6 +54,13 @@ export default function SettingsPage() {
           Save
         </button>
         {msg && <p className="text-muted">{msg}</p>}
+      </div>
+      <div className="space-y-2 paper-section">
+        <p className="section-label">Privacy</p>
+        <p className="text-muted">
+          Inbox and Focus are only yours. Home counts only your work. Projects, assigned tasks, and notes in this
+          workspace are visible to members. Guests see only invited projects. A verified phone is required to sign in.
+        </p>
       </div>
         {me.workspace.role === "owner" && <BillingBlock onMessage={setMsg} />}
         <label className="flex items-center gap-2 paper-section">
@@ -67,16 +77,13 @@ export default function SettingsPage() {
         <HolidaysBlock />
         {me.workspace.role === "owner" && <BackupRestoreBlock onMessage={setMsg} />}
         <MembersBlock />
-        <button
-          type="button"
-          className="h-9 rounded px-3 text-muted hover:bg-hover hover:text-ink"
-          onClick={async () => {
-            await api("/api/auth/logout", { method: "POST" });
-            router.replace("/login");
-          }}
-        >
-          Log out
-        </button>
+        {me.is_admin && <PeopleBlock />}
+        <div className="space-y-1 paper-section">
+          <p className="section-label">About</p>
+          <p className="font-medium">{APP_NAME}</p>
+          <p className="text-muted tabular-nums">{versionLine}</p>
+          <p className="text-muted">{copyrightLine}</p>
+        </div>
       </div>
     </div>
   );
@@ -138,7 +145,7 @@ function HolidaysBlock() {
       >
         <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="h-9 rounded border border-line px-2" />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" className="h-9 min-w-0 flex-1 rounded border border-line px-2" />
-        <button type="submit" className="h-9 rounded-lg bg-accent px-3 font-semibold text-white hover:bg-accent-hover">
+        <button type="submit" className="btn-primary">
           Add
         </button>
       </form>
@@ -288,7 +295,7 @@ function BillingBlock({ onMessage }: { onMessage: (msg: string) => void }) {
         </p>
       )}
       {billing?.plan !== "team" && (
-        <button type="button" className="h-9 rounded border border-line px-3" onClick={() => void api("/api/billing/subscribe", { method: "POST" }).then(() => { onMessage("Team plan active."); void api<typeof billing>("/api/billing").then(setBilling); })}>
+        <button type="button" className="btn-ghost" onClick={() => void api("/api/billing/subscribe", { method: "POST" }).then(() => { onMessage("Team plan active."); void api<typeof billing>("/api/billing").then(setBilling); })}>
           Upgrade to Team
         </button>
       )}
@@ -307,7 +314,7 @@ function BillingBlock({ onMessage }: { onMessage: (msg: string) => void }) {
           ))}
           <button
             type="button"
-            className="h-9 rounded border border-line px-3"
+            className="btn-ghost"
             onClick={async () => {
               const created = await api<{ token: string; id: string; name: string; prefix: string }>("/api/api-tokens", { method: "POST", body: JSON.stringify({ name: "ci" }) });
               setTokenValue(created.token);
@@ -354,7 +361,7 @@ function BackupRestoreBlock({ onMessage }: { onMessage: (msg: string) => void })
       <button
         type="button"
         disabled={!!busy}
-        className="h-9 rounded-lg bg-accent px-3 font-semibold text-white hover:bg-accent-hover"
+        className="btn-primary"
         onClick={async () => {
           setBusy("download");
           setError("");
@@ -433,7 +440,7 @@ function MembersBlock() {
       <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Invite email" className="h-9 w-full rounded border border-line px-3" />
       <button
         type="button"
-        className="h-9 rounded border border-line px-3"
+        className="btn-ghost"
         onClick={async () => {
           const inv = await api<{ url: string; token: string }>("/api/workspace/invites", { method: "POST", body: JSON.stringify({ email, role: "member" }) });
           setLink(`${window.location.origin}/invite/${inv.token}`);
@@ -442,6 +449,164 @@ function MembersBlock() {
         Copy invite link
       </button>
       {link && <p className="break-all text-xs text-accent">{link}</p>}
+    </div>
+  );
+}
+
+function PeopleBlock() {
+  const { me } = useApp();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selected, setSelected] = useState<string>("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+  const [createName, setCreateName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPhone, setCreatePhone] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+
+  async function load() {
+    try {
+      const data = await api<{ users: AdminUser[] }>("/api/admin/users");
+      setUsers(data.users);
+    } catch {
+      /* ignore while API is down */
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  function open(row: AdminUser) {
+    setSelected(row.id);
+    setName(row.name);
+    setEmail(row.email);
+    setPassword("");
+    setMsg("");
+    setError("");
+  }
+
+  const current = users.find((row) => row.id === selected);
+
+  return (
+    <div className="space-y-3 paper-section">
+      <p className="section-label">People</p>
+      <p className="text-[12px] text-muted">
+        Platform admin. Change name, email, or password for any account. Disabled accounts cannot sign in.
+      </p>
+      <div className="space-y-1">
+        {users.map((row) => (
+          <button
+            key={row.id}
+            type="button"
+            onClick={() => open(row)}
+            className={`flex h-9 w-full items-center gap-2 rounded px-2 text-left ${selected === row.id ? "bg-hover" : "hover:bg-hover"}`}
+          >
+            <span className="min-w-0 flex-1 truncate">{row.name}</span>
+            <span className="hidden min-w-0 truncate text-[12px] text-muted sm:block">{row.email}</span>
+            {row.phone_verified ? (
+              <span className="text-[11px] text-muted">Verified</span>
+            ) : (
+              <span className="text-[11px] font-semibold text-overdue">Unverified</span>
+            )}
+            {row.is_admin && <span className="text-[11px] font-semibold text-accent">Admin</span>}
+            {row.disabled && <span className="text-[11px] font-semibold text-overdue">Disabled</span>}
+          </button>
+        ))}
+      </div>
+      {current && (
+        <form
+          className="space-y-3 border-t border-line pt-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError("");
+            try {
+              const body: Record<string, string> = { name, email };
+              if (password) body.password = password;
+              await api(`/api/admin/users/${current.id}`, { method: "PATCH", body: JSON.stringify(body) });
+              setPassword("");
+              setMsg("Saved.");
+              await load();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not save.");
+            }
+          }}
+        >
+          <label className="block">
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 h-9 w-full rounded border border-line px-3" />
+          </label>
+          <label className="block">
+            Email
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="mt-1 h-9 w-full rounded border border-line px-3" />
+          </label>
+          <label className="block">
+            New password
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Leave blank to keep" className="mt-1 h-9 w-full rounded border border-line px-3" />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="btn-primary">
+              Save user
+            </button>
+            {current.id !== me?.id && (
+              <button
+                type="button"
+                className={current.disabled ? "btn-ghost" : "btn-danger"}
+                onClick={async () => {
+                  setError("");
+                  try {
+                    await api(`/api/admin/users/${current.id}`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ disabled: !current.disabled }),
+                    });
+                    setMsg(current.disabled ? "Account enabled." : "Account disabled.");
+                    await load();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Could not update account.");
+                  }
+                }}
+              >
+                {current.disabled ? "Enable" : "Disable"}
+              </button>
+            )}
+          </div>
+          {msg && <p className="text-muted">{msg}</p>}
+          {error && <p className="text-[12px] text-overdue">{error}</p>}
+        </form>
+      )}
+      <form
+        className="space-y-2 border-t border-line pt-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setError("");
+          try {
+            await api("/api/admin/users", {
+              method: "POST",
+              body: JSON.stringify({ name: createName, email: createEmail, phone: createPhone, password: createPassword }),
+            });
+            setCreateName("");
+            setCreateEmail("");
+            setCreatePhone("");
+            setCreatePassword("");
+            setMsg("User created.");
+            await load();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not create user.");
+          }
+        }}
+      >
+        <p className="text-[12px] font-semibold text-ink">New user</p>
+        <input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="Name" required className="h-9 w-full rounded border border-line px-3" />
+        <input value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} type="email" placeholder="Email" required className="h-9 w-full rounded border border-line px-3" />
+        <input value={createPhone} onChange={(e) => setCreatePhone(e.target.value)} type="tel" placeholder="Phone" required className="h-9 w-full rounded border border-line px-3" />
+        <input value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} type="password" placeholder="Password" required minLength={8} className="h-9 w-full rounded border border-line px-3" />
+        <button type="submit" className="btn-primary">
+          Create user
+        </button>
+      </form>
     </div>
   );
 }

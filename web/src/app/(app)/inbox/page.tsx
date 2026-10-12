@@ -35,7 +35,7 @@ export default function InboxPage() {
       ) : (
         <div className="mt-6">
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} onChange={() => void load()} />
+            <TaskRow key={t.id} task={t} peers={tasks} onChange={() => void load()} />
           ))}
         </div>
       )}

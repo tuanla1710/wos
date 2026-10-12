@@ -4,7 +4,8 @@ from tests.conftest import invite_and_join
 def test_lecture_skeleton_on_create(user):
     note = user.post("/api/notes", json={"kind": "lecture"}).json()
     assert note["kind"] == "lecture"
-    assert note["title"] == "Untitled"
+    assert note["title"].count("_") >= 1
+    assert note["title"][:10].count("-") == 2
     assert "# Lesson title" in note["body"]
     assert "## Objective" in note["body"]
     assert "```python" in note["body"]

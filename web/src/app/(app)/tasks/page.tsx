@@ -5,6 +5,7 @@ import { api, statusLabel } from "@/lib/api";
 import type { Task } from "@/lib/types";
 import { TaskRow } from "@/components/task/TaskRow";
 import { useApp } from "@/lib/AppContext";
+import { endDrag, parseDragData, setDragData } from "@/lib/dnd";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
 
 const tabs = ["today", "upcoming", "overdue", "all"] as const;
@@ -110,7 +111,7 @@ export default function MyTasksPage() {
       ) : view === "list" ? (
         <div className="mt-4">
           {tasks.map((t) => (
-            <TaskRow key={t.id} task={t} onChange={() => void load()} />
+            <TaskRow key={t.id} task={t} peers={tasks} onChange={() => void load()} />
           ))}
         </div>
       ) : (
@@ -121,8 +122,8 @@ export default function MyTasksPage() {
               className="min-h-[200px] rounded-xl hud-drop p-2"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
-                const id = e.dataTransfer.getData("text/plain");
-                if (id) void dropStatus(id, col);
+                const d = parseDragData(e);
+                if (d?.kind === "task") void dropStatus(d.id, col);
               }}
             >
               <p className="mb-2 px-1 text-[12px] font-semibold uppercase text-muted">
@@ -134,7 +135,8 @@ export default function MyTasksPage() {
                   <div
                     key={t.id}
                     draggable
-                    onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
+                    onDragStart={(e) => setDragData(e, "task", t.id)}
+                    onDragEnd={() => endDrag()}
                     className="grab-chip mb-2 rounded-lg p-3 text-sm hover:bg-hover"
                   >
                     {t.title}

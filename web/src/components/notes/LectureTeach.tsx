@@ -11,7 +11,7 @@ const PHASE: Record<BeatPhase, { label: string; color: string; soft: string }> =
   start: { label: "Start", color: "#57534E", soft: "#F5F5F4" },
   hook: { label: "Hook", color: "#B54708", soft: "#FEF6EE" },
   explore: { label: "Explore", color: "#175CD3", soft: "#EFF4FF" },
-  build: { label: "Build", color: "#1D4E4A", soft: "#E6F0EF" },
+  build: { label: "Build", color: "#1B365D", soft: "#E4EAF3" },
   practice: { label: "Practice", color: "#6941C6", soft: "#F4F3FF" },
   wrap: { label: "Wrap up", color: "#067647", soft: "#ECFDF3" },
 };
@@ -114,7 +114,7 @@ export function LectureTeach({
       <div className="flex min-h-[360px] flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-sm text-muted">Add ## headings in Author to split the lesson into beats.</p>
         {onAuthor && (
-          <button type="button" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover" onClick={onAuthor}>
+          <button type="button" className="btn-primary" onClick={onAuthor}>
             Author
           </button>
         )}
@@ -154,7 +154,7 @@ export function LectureTeach({
         <div className="flex gap-2">
           <button
             type="button"
-            className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover"
+            className="btn-primary"
             onClick={() => setSlides(true)}
             title="Widescreen slides with the coach voice"
           >
@@ -162,7 +162,7 @@ export function LectureTeach({
           </button>
           <button
             type="button"
-            className="h-9 rounded-lg border border-line px-3 text-sm font-medium hover:bg-hover"
+            className="btn-ghost"
             onClick={toggleFull}
             title="Present (F)"
           >

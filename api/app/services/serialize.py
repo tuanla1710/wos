@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.models.project import Project
 from app.models.task import Task, TaskChecklist
@@ -20,6 +20,18 @@ def holiday_dates(db: Session, workspace_id: UUID) -> set[date]:
     return {row[0] for row in rows}
 
 
+def _issue_key(task: Task) -> str | None:
+    number = getattr(task, "task_number", None)
+    if not number or not getattr(task, "project_id", None):
+        return None
+    session = object_session(task)
+    project = session.get(Project, task.project_id) if session else None
+    key = getattr(project, "key", None) if project else None
+    if not key:
+        return None
+    return f"{key}-{number}"
+
+
 def holiday_out(row: WorkspaceHoliday) -> dict:
     return {"id": str(row.id), "day": row.day.isoformat(), "name": row.name}
 
@@ -31,6 +43,9 @@ def user_out(user: User, workspace: Workspace, role: str | None = None, member_c
         "email": user.email,
         "timezone": user.timezone,
         "ai_enabled": bool(getattr(user, "ai_enabled", False)),
+        "is_admin": bool(getattr(user, "is_admin", False)),
+        "phone": getattr(user, "phone", None),
+        "phone_verified": getattr(user, "phone_verified_at", None) is not None,
         "workspace": {"id": str(workspace.id), "name": workspace.name, "role": role},
     }
     if member_count is not None:
@@ -49,6 +64,7 @@ def project_out(project: Project, holidays: set[date] | None = None) -> dict:
         "start_date": start.isoformat() if start else None,
         "due_date": due.isoformat() if due else None,
         "work_days": work_days(start, due, holidays),
+        "key": getattr(project, "key", None),
     }
 
 
@@ -87,6 +103,8 @@ def task_out(
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "focused": focused,
+        "issue_key": _issue_key(task),
+        "task_number": getattr(task, "task_number", None),
     }
     if checklists is not None:
         data["checklists"] = [checklist_out(i) for i in checklists]

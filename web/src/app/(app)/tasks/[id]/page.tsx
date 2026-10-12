@@ -3,11 +3,12 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeftGlyph } from "@/components/icons/AppIcons";
-import { NoteDrawer } from "@/components/notes/NoteDrawer";
 import { NoteList } from "@/components/notes/NoteList";
 import { api, priorityLabel } from "@/lib/api";
 import type { Attachment, Checklist, Comment, Task, WorkNote } from "@/lib/types";
 import { useApp } from "@/lib/AppContext";
+import { allowDrop, currentDrag, endDrag, parseDragData, setDragData } from "@/lib/dnd";
+import { canMoveUnder } from "@/lib/nesting";
 import { LinksEditor } from "@/components/ui/LinksEditor";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
 
@@ -29,7 +30,7 @@ export default function TaskDetailPage() {
   const [activity, setActivity] = useState<{ id: string; summary: string; created_at: string | null }[]>([]);
   const [comment, setComment] = useState("");
   const [subTitle, setSubTitle] = useState("");
-  const [drawer, setDrawer] = useState(false);
+  const [taskChoices, setTaskChoices] = useState<Task[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -47,6 +48,22 @@ export default function TaskDetailPage() {
       setActivity(a.activity);
       const listed = await api<{ files: Attachment[] }>(`/api/tasks/${id}/attachments`).catch(() => ({ files: [] }));
       setFiles(listed.files);
+      const [organized, inbox] = await Promise.all([
+        api<{ tasks: Task[] }>("/api/tasks?tab=all").catch(() => ({ tasks: [] })),
+        api<{ tasks: Task[] }>("/api/tasks?tab=inbox").catch(() => ({ tasks: [] })),
+      ]);
+      const seen = new Set<string>();
+      const choices: Task[] = [];
+      for (const row of [...organized.tasks, ...inbox.tasks]) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        choices.push(row);
+      }
+      if (next.parent_id && !seen.has(next.parent_id)) {
+        const parent = await api<Task>(`/api/tasks/${next.parent_id}`).catch(() => null);
+        if (parent) choices.unshift(parent);
+      }
+      setTaskChoices(choices);
     } catch {
       setError("Not found.");
       router.replace("/");
@@ -60,8 +77,9 @@ export default function TaskDetailPage() {
 
   async function patch(body: Record<string, unknown>) {
     try {
-      setTask(await api<Task>(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(body) }));
+      await api(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(body) });
       await refresh();
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t save. Try again.");
     }
@@ -105,7 +123,7 @@ export default function TaskDetailPage() {
             </select>
             <input type="date" title="Start" className="h-9 rounded border border-line px-2 text-sm" onChange={(e) => e.target.value && void patch({ start_date: e.target.value })} />
             <input type="date" title="Due" className="h-9 rounded border border-line px-2 text-sm" onChange={(e) => e.target.value && void patch({ due_date: e.target.value })} />
-            <button type="button" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover" onClick={() => void api(`/api/tasks/${id}/move-my-tasks`, { method: "POST" }).then(() => { void refresh(); void load(); })}>
+            <button type="button" className="btn-primary" onClick={() => void api(`/api/tasks/${id}/move-my-tasks`, { method: "POST" }).then(() => { void refresh(); void load(); })}>
               Move to My Tasks
             </button>
           </div>
@@ -209,43 +227,110 @@ export default function TaskDetailPage() {
             ))}
           </div>
           <p className="mt-8 text-[12px] font-semibold uppercase text-muted">Subtasks</p>
-          <div className="mt-2 space-y-1">
+          {!guest && (
+            <label className="mt-2 flex items-center gap-3 text-sm">
+              <span className="w-24 shrink-0 text-muted">Parent</span>
+              <select
+                value={task.parent_id ?? ""}
+                onChange={(e) => void patch(e.target.value ? { parent_id: e.target.value } : { clear_parent: true })}
+                className="h-9 min-w-0 flex-1 rounded border border-line px-2"
+              >
+                <option value="">None</option>
+                {taskChoices
+                  .filter((row) => row.id !== id)
+                  .map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
+          <div
+            className="mt-2 min-h-9 space-y-1 rounded-lg"
+            onDragOver={(e) => {
+              if (guest) return;
+              const d = currentDrag();
+              const nodes = [...taskChoices, task, ...(task.subtasks ?? [])];
+              if (d?.kind === "task" && canMoveUnder(nodes, d.id, id)) allowDrop(e);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const d = parseDragData(e);
+              endDrag();
+              const nodes = [...taskChoices, task, ...(task.subtasks ?? [])];
+              if (!guest && d?.kind === "task" && canMoveUnder(nodes, d.id, id)) {
+                void api(`/api/tasks/${d.id}`, { method: "PATCH", body: JSON.stringify({ parent_id: id }) }).then(() => {
+                  void refresh();
+                  void load();
+                });
+              }
+            }}
+          >
             {(task.subtasks ?? []).map((child) => (
-              <div key={child.id} className="flex h-9 items-center gap-2 text-sm">
+              <div
+                key={child.id}
+                draggable={!guest}
+                onDragStart={(e) => {
+                  if (guest) return;
+                  setDragData(e, "task", child.id);
+                }}
+                onDragEnd={() => endDrag()}
+                className={`flex h-9 items-center gap-2 text-sm ${guest ? "" : "cursor-grab active:cursor-grabbing"}`}
+              >
                 <button type="button" className="flex-1 truncate text-left" onClick={() => router.push(`/tasks/${child.id}`)}>
                   {child.title}
                 </button>
                 <span className="text-muted">{child.status.replace("_", " ")}</span>
+                {!guest && (
+                  <button type="button" className="text-muted" onClick={() => void api(`/api/tasks/${child.id}`, { method: "PATCH", body: JSON.stringify({ clear_parent: true }) }).then(() => load())}>
+                    Unlink
+                  </button>
+                )}
                 <button type="button" className="text-overdue" onClick={async () => { if (!confirm(`Delete “${child.title}”?`)) return; await api(`/api/tasks/${child.id}`, { method: "DELETE" }); await load(); }}>
                   Delete
                 </button>
               </div>
             ))}
           </div>
-          <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (!subTitle.trim()) return; await api("/api/tasks", { method: "POST", body: JSON.stringify({ title: subTitle.trim(), parent_id: id }) }); setSubTitle(""); await refresh(); await load(); }}>
-            <input value={subTitle} onChange={(e) => setSubTitle(e.target.value)} placeholder="Add a subtask" className="h-9 flex-1 rounded border border-line px-3 text-sm" />
-            <button type="submit" className="h-9 rounded border border-line px-3 text-sm">Add</button>
-          </form>
+          {!guest && (
+            <>
+              {taskChoices.filter((row) => row.id !== id && !(task.subtasks ?? []).some((child) => child.id === row.id)).length > 0 && (
+                <select
+                  className="mt-2 h-9 w-full rounded border border-line px-2 text-sm"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) void api(`/api/tasks/${e.target.value}`, { method: "PATCH", body: JSON.stringify({ parent_id: id }) }).then(() => { void refresh(); void load(); });
+                  }}
+                >
+                  <option value="">Move existing task here</option>
+                  {taskChoices
+                    .filter((row) => row.id !== id && !(task.subtasks ?? []).some((child) => child.id === row.id))
+                    .map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.title}
+                      </option>
+                    ))}
+                </select>
+              )}
+              <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (!subTitle.trim()) return; await api("/api/tasks", { method: "POST", body: JSON.stringify({ title: subTitle.trim(), parent_id: id }) }); setSubTitle(""); await refresh(); await load(); }}>
+                <input value={subTitle} onChange={(e) => setSubTitle(e.target.value)} placeholder="Add a subtask" className="h-9 flex-1 rounded border border-line px-3 text-sm" />
+                <button type="submit" className="btn-ghost">Add</button>
+              </form>
+            </>
+          )}
           <div className="mt-8">
             <LinksEditor links={task.links ?? []} createPath={`/api/tasks/${id}/links`} onChange={() => void load()} />
           </div>
           <div className="mt-10 flex gap-3">
-            <button type="button" className="h-9 text-sm text-muted" onClick={() => void api(`/api/tasks/${id}/archive`, { method: "POST" }).then(() => router.push("/tasks"))}>Archive</button>
-            <button type="button" className="h-9 text-sm text-overdue" onClick={() => { if (confirm(`Delete “${task.title}”? This can’t be undone.`)) void api(`/api/tasks/${id}`, { method: "DELETE" }).then(() => { void refresh(); router.push("/tasks"); }); }}>Delete</button>
+            <button type="button" className="btn-ghost text-muted" onClick={() => void api(`/api/tasks/${id}/archive`, { method: "POST" }).then(() => router.push("/tasks"))}>Archive</button>
+            <button type="button" className="btn-danger" onClick={() => { if (confirm(`Delete “${task.title}”? This can’t be undone.`)) void api(`/api/tasks/${id}`, { method: "DELETE" }).then(() => { void refresh(); router.push("/tasks"); }); }}>Delete</button>
           </div>
         </>
       )}
 
       {tab === "notes" && (
         <div className="mt-6">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold">Notes</p>
-            {!guest && (
-              <button type="button" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white" onClick={() => setDrawer(true)}>
-                Add Note
-              </button>
-            )}
-          </div>
           <NoteList notes={notes} empty="Write what you learned on this task." onOpen={(n) => router.push(`/notes/${n.id}`)} onChange={() => void load()} />
         </div>
       )}
@@ -288,13 +373,12 @@ export default function TaskDetailPage() {
           </div>
           <form className="mt-3 flex gap-2" onSubmit={async (e) => { e.preventDefault(); if (!comment.trim()) return; await api(`/api/tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body: comment.trim() }) }); setComment(""); await load(); }}>
             <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write a comment. Use @Name to mention." className="h-9 flex-1 rounded border border-line px-3 text-sm" />
-            <button type="submit" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white">Comment</button>
+            <button type="submit" className="btn-primary">Comment</button>
           </form>
         </div>
       )}
 
       {error && <p className="mt-4 text-sm text-overdue">{error}</p>}
-      {drawer && <NoteDrawer taskId={id} projectId={task.project_id ?? undefined} onClose={() => { setDrawer(false); void load(); }} />}
     </div>
   );
 }

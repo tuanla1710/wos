@@ -11,6 +11,15 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     timezone: str = "Asia/Seoul"
+    phone: str = Field(min_length=8, max_length=20)
+
+
+class PhoneSendIn(BaseModel):
+    phone: str | None = Field(default=None, max_length=20)
+
+
+class PhoneVerifyIn(BaseModel):
+    code: str = Field(min_length=4, max_length=8)
 
 
 class LoginIn(BaseModel):
@@ -24,12 +33,30 @@ class MePatch(BaseModel):
     ai_enabled: bool | None = None
 
 
+class AdminUserCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    email: EmailStr
+    password: str = Field(min_length=8)
+    timezone: str = "Asia/Seoul"
+    is_admin: bool = False
+    phone: str = Field(min_length=8, max_length=20)
+
+
+class AdminUserPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8)
+    timezone: str | None = None
+    is_admin: bool | None = None
+    disabled: bool | None = None
+
+
 class WorkspacePatch(BaseModel):
     name: str = Field(min_length=1, max_length=80)
 
 
 class TaskCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
     project_id: UUID | None = None
     parent_id: UUID | None = None
     start_date: Date | None = None

@@ -20,7 +20,7 @@ def current_user(
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
     user = db.get(User, UUID(user_id))
-    if not user:
+    if not user or user.disabled_at is not None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return user
 

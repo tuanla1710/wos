@@ -15,7 +15,7 @@ Cùng trang Notes hiện tại. Thêm chip `Lecture` trên hàng filter. Không 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Notes                                    [Import .txt]  [Add Note]     │
+│  Notes                                    [Import .txt]                 │
 │                                                                         │
 │  [ Search notes…                              ]                         │
 │  ( All )  ( My Notes )  ( Pinned )  ( Lecture )  ( Archived )           │
@@ -42,14 +42,14 @@ Cùng trang Notes hiện tại. Thêm chip `Lecture` trên hàng filter. Không 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Notes                                    [Import .txt]  [Add Note]     │
+│  Notes                                    [Import .txt]                 │
 │  ( All )  ( My Notes )  ( Pinned )  ( Lecture )  ( Archived )           │
 │                                                                         │
 │           Lectures are for teaching. Tasks are for doing.               │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-Guest: không `Add Note`. List chỉ lecture của project được mời.
+Guest: không Import, không `+ Note`. List chỉ lecture của project được mời.
 
 ---
 
@@ -189,7 +189,7 @@ Cùng width 880. Không outline Teach.
 
 | Loại | Bg | Label | Border-left |
 |---|---|---|---|
-| TIP | `accent-soft` `#D9E8E6` | `TIP` 11/16/600 uppercase accent | 3px `accent` |
+| TIP | `accent-soft` `#E4EAF3` | `TIP` 11/16/600 uppercase accent | 3px `accent` |
 | WARNING | `#FEE4E2` 40% / `#FDF2F0` | `WARNING` overdue | 3px `overdue` |
 | PITFALL | cùng WARNING | `PITFALL` overdue | 3px `overdue` |
 
@@ -331,7 +331,7 @@ Không skeleton screen. Không illustration.
 ## 6b. Teach visual (v2)
 
 - Beat → phase theo tiêu đề `##`: **Start** (Objective, Goal, Parent prep, Today) · **Hook** (Story, Ask) · **Explore** (Unplugged, Explain, Think, Draw, Problem, Lesson) · **Build** (Build, Sample, Scratch, Python, Algorithm) · **Practice** (Practice, Challenge, Test) · **Wrap up** (Mistakes, Check, Homework, Pass, Next). Tiêu đề lạ = phase của beat trước.
-- Màu phase: Start `#57534E`, Hook `#B54708`, Explore `#175CD3`, Build `#1D4E4A`, Practice `#6941C6`, Wrap `#067647`.
+- Màu phase: Start `#57534E`, Hook `#B54708`, Explore `#175CD3`, Build `#1B365D`, Practice `#6941C6`, Wrap `#067647`.
 - Thanh tiến trình: 1 vạch / beat, màu phase, đã qua = đậm. Outline nhóm theo phase, số tròn.
 - Beat = card, dải màu phase trên đầu, chữ 17px, tiêu đề 30px.
 - Kiểu riêng: Objective = khối “Today” chữ lớn · Story = trích dẫn lớn · Ask/Check/Eight questions = thẻ câu hỏi đánh số · Mistakes = thẻ đỏ (phần “Bố:/Hỏi:” dòng dưới) · Pass = khối xanh “Pass when” · Homework = khối checklist · Code = nền tối 16px.

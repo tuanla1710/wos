@@ -30,6 +30,7 @@ class Task(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_inbox: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    task_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     blocked_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

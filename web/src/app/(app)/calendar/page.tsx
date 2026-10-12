@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeftGlyph, ChevronRightGlyph } from "@/components/icons/AppIcons";
 import { api, priorityLabel } from "@/lib/api";
 import type { CalendarEvent, PublicHoliday, Task } from "@/lib/types";
+import { endDrag, parseDragData, setDragData } from "@/lib/dnd";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
 
 function mondayOf(d: Date) {
@@ -110,7 +111,7 @@ export default function CalendarPage() {
             <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="h-9 rounded border border-line px-2" />
           </>
         )}
-        <button type="submit" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover">
+        <button type="submit" className="btn-primary">
           Add event
         </button>
       </form>
@@ -129,9 +130,9 @@ export default function CalendarPage() {
               className={`min-h-[280px] rounded-lg border p-2 ${key === today ? "border-accent bg-accent-soft" : off ? "border-[#FECDCA] bg-[#FEF3F2]" : "border-line bg-sidebar"}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={async (e) => {
-                const id = e.dataTransfer.getData("text/plain");
-                if (!id) return;
-                await api(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ due_date: key }) });
+                const d = parseDragData(e);
+                if (d?.kind !== "task") return;
+                await api(`/api/tasks/${d.id}`, { method: "PATCH", body: JSON.stringify({ due_date: key }) });
                 await load();
               }}
             >
@@ -158,7 +159,8 @@ export default function CalendarPage() {
                   key={t.id}
                   type="button"
                   draggable
-                  onDragStart={(e) => e.dataTransfer.setData("text/plain", t.id)}
+                  onDragStart={(e) => setDragData(e, "task", t.id)}
+                  onDragEnd={() => endDrag()}
                   onClick={() => router.push(`/tasks/${t.id}`)}
                   className={`grab-chip mb-1 w-full rounded-lg px-2 py-1 text-left text-xs ${t.status === "done" ? "text-muted line-through" : ""}`}
                 >

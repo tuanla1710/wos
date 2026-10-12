@@ -23,7 +23,12 @@ def search(
     workspace: Workspace = Depends(current_workspace),
 ) -> dict:
     term = f"%{q.strip()}%"
-    tq = db.query(Task).filter(Task.workspace_id == workspace.id, Task.archived_at.is_(None), Task.title.ilike(term))
+    tq = db.query(Task).filter(
+        Task.workspace_id == workspace.id,
+        Task.archived_at.is_(None),
+        Task.title.ilike(term),
+        (Task.is_inbox.is_(False)) | (Task.created_by == user.id),
+    )
     pq = db.query(Project).filter(Project.workspace_id == workspace.id, Project.archived_at.is_(None), Project.name.ilike(term))
     nq = db.query(Note).filter(
         Note.workspace_id == workspace.id,

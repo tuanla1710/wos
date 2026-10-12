@@ -15,7 +15,7 @@ export default function InvitePage() {
       {error && <p className="mt-3 text-sm text-overdue">{error}</p>}
       <button
         type="button"
-        className="mt-4 h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover"
+        className="btn-primary mt-4"
         onClick={async () => {
           try {
             const me = await api<{ workspace: { id: string } }>(`/api/invites/${token}/accept`, { method: "POST" });

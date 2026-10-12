@@ -59,7 +59,24 @@ qlcv/
         └── api/routes/               # auth, me, home, tasks, …
 ```
 
-## Run (local)
+## Run (Docker)
+
+Host stays clean: only Docker. No host Node or Python.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Web: `http://localhost:3000` · API: `http://localhost:8080` · Docs: `http://localhost:8080/docs`
+
+Platform admin (manages every account): `admin@workos.dev` / `Admin1234`. Change these in `.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`) before first boot.
+
+Phone verification is required after sign-in. Local default `SMS_PROVIDER=console` logs the 6-digit code (and shows it on the verify screen). For real SMS, set `SMS_PROVIDER=twilio` plus `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM`. Default country code is `+82`.
+
+Compose builds `web` + `api`, starts Postgres, then runs Alembic on API boot. Uploads persist in the `api_uploads` volume.
+
+## Run (host + Docker Postgres)
 
 ```bash
 cp .env.example .env
@@ -67,7 +84,7 @@ docker compose up -d db
 
 cd api
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload --port 8080
@@ -77,6 +94,4 @@ npm install
 npm run dev
 ```
 
-Web: `http://localhost:3000` · API: `http://localhost:8080` · Docs: `http://localhost:8080/docs`
-
-Windows reserves port 8000 on some machines — the API uses 8080. If `docker` is missing on PATH, start Postgres from WSL: `docker-compose up -d db` or `docker run` the `postgres:16-alpine` service in `docker-compose.yml`.
+Windows reserves port 8000 on some machines — the API uses 8080. If `docker` is missing on PATH, start Postgres from WSL: `docker compose up -d db` or `docker run` the `postgres:16-alpine` service in `docker-compose.yml`.

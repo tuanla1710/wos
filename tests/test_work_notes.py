@@ -1,6 +1,23 @@
+import re
 from datetime import date
 
 from tests.conftest import invite_and_join
+
+STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}")
+
+
+def test_note_default_title_is_datetime(user):
+    note = user.post("/api/notes", json={}).json()
+    assert STAMP.match(note["title"])
+    assert note["title"].count("_") == 1
+
+
+def test_note_title_includes_project_and_task(user):
+    project = user.post("/api/projects", json={"name": "RAN Platform"}).json()
+    task = user.post("/api/tasks", json={"title": "Design API", "project_id": project["id"]}).json()
+    note = user.post("/api/notes", json={"project_id": project["id"], "task_id": task["id"]}).json()
+    assert STAMP.match(note["title"])
+    assert note["title"].endswith("_RAN_Platform_Design_API")
 
 
 def test_create_defaults_to_work(user):

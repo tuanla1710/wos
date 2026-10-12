@@ -19,6 +19,8 @@ export type Task = {
   checklists?: Checklist[];
   subtasks?: Task[];
   links?: EntityLink[];
+  issue_key?: string | null;
+  task_number?: number | null;
 };
 
 export type Checklist = { id: string; title: string; is_done: boolean; position: number };
@@ -28,6 +30,7 @@ export type EntityLink = { id: string; title: string; url: string; task_id?: str
 export type Project = {
   id: string;
   name: string;
+  key?: string | null;
   parent_id?: string | null;
   start_date?: string | null;
   due_date?: string | null;
@@ -64,7 +67,23 @@ export type Me = {
   email: string;
   timezone: string;
   ai_enabled?: boolean;
+  is_admin?: boolean;
+  phone?: string | null;
+  phone_verified?: boolean;
   workspace: { id: string; name: string; role?: string | null; member_count?: number };
+};
+
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  phone_verified?: boolean;
+  timezone: string;
+  is_admin: boolean;
+  disabled: boolean;
+  created_at: string | null;
+  workspaces: { id: string; name: string; role: string }[];
 };
 
 export type WorkspaceRef = { id: string; name: string; role: string };

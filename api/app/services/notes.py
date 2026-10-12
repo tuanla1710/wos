@@ -17,6 +17,7 @@ from app.models.task import Task
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.activity import log_activity
+from app.services.naming import stamp_title
 from app.services.social import ALLOWED, uploads_root
 
 KINDS = {"quick", "work", "meeting", "lecture"}
@@ -288,11 +289,13 @@ def create_note(
         title = text.strip().splitlines()[0]
         if title == text.strip():
             text = ""
-    if kind_value == "lecture" and not (title or "").strip():
-        title_value = "Untitled"
-    else:
-        title_value = _normalize_title(title, text)
     project_id, task_id = _resolve_links(db, workspace, project_id, task_id)
+    project = db.get(Project, project_id) if project_id else None
+    task = db.get(Task, task_id) if task_id else None
+    if (title or "").strip():
+        title_value = _normalize_title(title, text)
+    else:
+        title_value = stamp_title(user.timezone, project.name if project else None, task.title if task else None)
     note = Note(
         workspace_id=workspace.id,
         created_by=user.id,

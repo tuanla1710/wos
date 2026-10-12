@@ -100,20 +100,42 @@ def client():
 
 
 class Api:
+    _phones = 0
+
     def __init__(self, client: TestClient):
         self.client = client
         self.workspace_id = ""
+        self.phone = ""
 
     def headers(self) -> dict[str, str]:
         return {"X-Workspace-Id": self.workspace_id} if self.workspace_id else {}
 
-    def register(self, name: str, email: str, password: str = "password1", timezone: str = "Asia/Seoul"):
+    def register(
+        self,
+        name: str,
+        email: str,
+        password: str = "password1",
+        timezone: str = "Asia/Seoul",
+        phone: str | None = None,
+        verify_phone: bool = True,
+    ):
+        if phone is None:
+            Api._phones += 1
+            phone = f"+82101{Api._phones:07d}"
+        self.phone = phone
         res = self.client.post(
             "/api/auth/register",
-            json={"name": name, "email": email, "password": password, "timezone": timezone},
+            json={"name": name, "email": email, "password": password, "timezone": timezone, "phone": phone},
         )
         if res.status_code == 200:
             self.workspace_id = res.json()["workspace"]["id"]
+            if verify_phone:
+                sent = self.post("/api/auth/phone/send", json={})
+                code = sent.json().get("dev_code")
+                assert sent.status_code == 200, sent.text
+                assert code
+                checked = self.post("/api/auth/phone/verify", json={"code": code})
+                assert checked.status_code == 200, checked.text
         return res
 
     def login(self, email: str, password: str = "password1"):

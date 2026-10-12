@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandLockup } from "@/components/icons/AppIcons";
 import { api, ApiError } from "@/lib/api";
+import { afterAuthPath } from "@/lib/auth";
+import type { Me } from "@/lib/types";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -35,8 +38,8 @@ export default function RegisterPage() {
             try {
               localStorage.removeItem("workspaceId");
               const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul";
-              await api("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, password, timezone: tz }) });
-              router.replace("/");
+              const me = await api<Me>("/api/auth/register", { method: "POST", body: JSON.stringify({ name, email, phone, password, timezone: tz }) });
+              router.replace(afterAuthPath(me));
             } catch (err) {
               setError(err instanceof ApiError ? err.message : "Couldn't save. Try again.");
             }
@@ -44,10 +47,11 @@ export default function RegisterPage() {
         >
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="h-9 w-full rounded border border-line px-3 text-sm" required />
           <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email" className="h-9 w-full rounded border border-line px-3 text-sm" required />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" placeholder="Phone (010-1234-5678)" className="h-9 w-full rounded border border-line px-3 text-sm" required />
           <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" className="h-9 w-full rounded border border-line px-3 text-sm" required />
           <input value={confirm} onChange={(e) => setConfirm(e.target.value)} type="password" placeholder="Confirm password" className="h-9 w-full rounded border border-line px-3 text-sm" required />
           {error && <p className="text-[12px] text-overdue">{error}</p>}
-          <button type="submit" className="h-9 w-full rounded bg-accent text-sm font-semibold text-white hover:bg-accent-hover">
+          <button type="submit" className="btn-primary w-full">
             Create account
           </button>
         </form>

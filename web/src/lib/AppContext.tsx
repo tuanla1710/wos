@@ -50,6 +50,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadSession = useCallback(async () => {
     const user = await api<Me>("/api/me");
     setMe(user);
+    if (!user.phone_verified) {
+      setReady(true);
+      router.replace("/verify-phone");
+      return;
+    }
     if (user.workspace?.id) setWorkspaceId(user.workspace.id);
     const role = user.workspace?.role;
     const year = new Date().getFullYear();
@@ -75,7 +80,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("workos:changed"));
     }
-  }, []);
+  }, [router]);
 
   const refresh = useCallback(async () => {
     await loadSession();
@@ -127,10 +132,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!me) {
+  if (!me || !me.phone_verified) {
     return (
       <div className="relative z-10 flex min-h-screen items-center justify-center">
-        <p className="text-sm text-muted">Redirecting to sign in…</p>
+        <p className="text-sm text-muted">{me ? "Redirecting to verify your phone…" : "Redirecting to sign in…"}</p>
       </div>
     );
   }

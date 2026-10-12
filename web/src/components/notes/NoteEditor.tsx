@@ -312,7 +312,7 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
           </button>
         )}
         {canEdit && (
-          <button type="button" className={`${teach || preview || rich ? "ml-auto" : ""} h-8 rounded-lg bg-accent px-3 text-[12px] font-semibold text-white`} onClick={() => void persist()}>
+          <button type="button" className={`${teach || preview || rich ? "ml-auto" : ""} btn-primary h-8 px-3 text-[12px]`} onClick={() => void persist()}>
             Save
           </button>
         )}

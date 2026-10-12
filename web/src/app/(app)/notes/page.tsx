@@ -41,11 +41,6 @@ export default function NotesPage() {
     void load();
   }, [filter]);
 
-  async function create() {
-    const n = await api<WorkNote>("/api/notes", { method: "POST", body: JSON.stringify({ kind: "work" }) });
-    router.push(`/notes/${n.id}`);
-  }
-
   const empty =
     filter === "archived"
       ? "Nothing archived."
@@ -85,11 +80,8 @@ export default function NotesPage() {
                 setError(err instanceof Error ? err.message : "Couldn’t import.");
               }
             }} />
-            <button type="button" className="h-9 rounded px-3 text-sm hover:bg-hover" onClick={() => file.current?.click()}>
+            <button type="button" className="btn-ghost" onClick={() => file.current?.click()}>
               Import
-            </button>
-            <button type="button" className="h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-hover" onClick={() => void create()}>
-              Add Note
             </button>
           </div>
         )}

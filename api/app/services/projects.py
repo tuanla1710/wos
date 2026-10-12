@@ -9,6 +9,7 @@ from app.models.task import Task
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.services.dates import require_range, user_today
+from app.services.issues import unique_project_key
 from app.services.serialize import holiday_dates, project_out, task_out
 
 
@@ -59,6 +60,7 @@ def create_project(
     project = Project(
         workspace_id=workspace.id,
         name=name,
+        key=unique_project_key(db, workspace.id, name),
         parent_id=parent.id if parent else None,
         start_date=start_date,
         due_date=due_date,

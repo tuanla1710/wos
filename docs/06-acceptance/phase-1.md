@@ -54,7 +54,7 @@ No forgot-password link. No OAuth.
 |---|---|---|---|
 | Q1 | Any app page | `+ Task`, title only, Add | Task `is_inbox=true`, popup closes, no Task Detail |
 | Q2 | Any page | Title + project | `is_inbox=false`, `project_id` set |
-| Q3 | Empty title | Add | `Title can’t be empty.` No row |
+| Q3 | Empty title | Add | Title mặc định `YYYY-MM-DD_HH-MM` |
 | Q4 | Esc | Open then Esc | Closed, nothing saved |
 | Q5 | Enter with title | Enter | Same as Add |
 | Q6 | Fields | Inspect | No Assignee. Priority default Medium. Due optional date only |

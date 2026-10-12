@@ -11,6 +11,7 @@ from app.models.task import Task, TaskChecklist
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.dates import require_range, user_today
+from app.services.issues import assign_issue
 from app.services.serialize import checklist_out, holiday_dates, task_out
 
 PRIORITY = {"high": 0, "medium": 1, "low": 2}
@@ -76,7 +77,7 @@ def create_task(
     db: Session,
     workspace: Workspace,
     user: User,
-    title: str,
+    title: str | None,
     project_id: UUID | None,
     due_date: date | None,
     priority: str,
@@ -84,9 +85,6 @@ def create_task(
     parent_id: UUID | None = None,
     start_date: date | None = None,
 ) -> Task:
-    title = title.strip()
-    if not title:
-        raise HTTPException(400, "Title can’t be empty.")
     if priority not in {"high", "medium", "low"}:
         priority = "medium"
     parent = None
@@ -94,10 +92,19 @@ def create_task(
         parent = get_task(db, workspace, parent_id)
         _parent_chain(db, parent)
         project_id = parent.project_id
+    project = None
     if project_id:
         project = db.query(Project).filter(Project.id == project_id, Project.workspace_id == workspace.id).first()
         if not project:
             raise HTTPException(404, "Not found.")
+    from app.services.naming import stamp_title
+
+    title = (title or "").strip() or stamp_title(
+        user.timezone,
+        project.name if project else None,
+        parent.title if parent else None,
+        limit=200,
+    )
     require_range(start_date, due_date)
     is_inbox = parent is None and project_id is None and due_date is None and start_date is None
     task = Task(
@@ -112,6 +119,8 @@ def create_task(
         due_date=due_date,
         is_inbox=is_inbox,
     )
+    if project:
+        assign_issue(db, task, project)
     db.add(task)
     from app.services.activity import log_activity
 
@@ -156,6 +165,7 @@ def patch_task(db: Session, workspace: Workspace, task: Task, data: dict) -> Tas
         task.is_inbox = False
     if data.get("clear_project"):
         task.project_id = None
+        task.task_number = None
     elif data.get("project_id") is not None:
         project = (
             db.query(Project)
@@ -164,8 +174,11 @@ def patch_task(db: Session, workspace: Workspace, task: Task, data: dict) -> Tas
         )
         if not project:
             raise HTTPException(404, "Not found.")
+        if task.project_id != project.id:
+            task.task_number = None
         task.project_id = project.id
         task.is_inbox = False
+        assign_issue(db, task, project)
     if "blocked_reason" in data and data["blocked_reason"] is not None:
         task.blocked_reason = data["blocked_reason"]
     actor_id = data.get("_actor_id")

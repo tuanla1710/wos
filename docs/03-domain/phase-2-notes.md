@@ -38,7 +38,7 @@ Note
 
 | Route | Job |
 |---|---|
-| `/notes` | Library: search, chips All / My Notes / Pinned / Archived, cards, Add Note |
+| `/notes` | Library: search, chips All / My Notes / Pinned / Archived, cards, Import. Tạo note từ top bar `+ Note` |
 | `/notes/new` | POST rồi replace `/notes/:id` |
 | `/notes/:id` | Full editor + meta + files + history |
 | `/tasks/:id` tab Notes | Note của task. Drawer Add (kind=quick) |
@@ -56,7 +56,7 @@ Task tabs: Overview | Notes | Files | Activity | Comments. Files tab = attachmen
 | Kind | Hành vi |
 |---|---|
 | quick | Drawer mặc định trên task. Enter save. Write more → work |
-| work | Default `/notes` Add Note |
+| work | Default top bar `+ Note` |
 | meeting | Body trống → insert skeleton một lần. Đổi kind không xóa body |
 | lecture | Body trống → skeleton buổi dạy. Author / Teach. [`phase-2-notes-lecture.md`](./phase-2-notes-lecture.md) |
 
@@ -88,11 +88,8 @@ Date: YYYY-MM-DD
 
 | Từ | Kết quả |
 |---|---|
-| Notes `Add Note` | kind=work, không gắn |
+| Top bar `+ Note` | full editor. Title mặc định `YYYY-MM-DD_HH-MM`, thêm `_project` / `_task` nếu đang ở project hoặc task |
 | Notes Import `.txt` | một note / file, kind=work |
-| Task `Add Note` | drawer, kind=quick, gắn task (+ project nếu có) |
-| Project `Add Note` | drawer, kind=work, gắn project |
-| Global `+` | vẫn `+ Task`. Không note |
 
 Empty `/notes`:
 

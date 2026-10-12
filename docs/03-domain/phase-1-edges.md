@@ -219,7 +219,7 @@ Không trash bin Phase 1.
 
 | Field | Rule | Lỗi |
 |---|---|---|
-| Title | 1–200, trim | Title can’t be empty. |
+| Title | 1–200, trim. Trống → `YYYY-MM-DD_HH-MM` (+ `_project` nếu có) | |
 | Project name | 1–80, trim | Project name can’t be empty. |
 | Checklist title | 1–200 | Don’t add an empty item. |
 | Search q | trim, ≥ 1 | Don’t call API if empty |

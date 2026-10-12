@@ -42,7 +42,13 @@ def suggestions(db: Session, workspace: Workspace, user: User, today) -> list[di
     for pin in week_pins:
         take(db.get(Task, pin.task_id))
 
-    base = db.query(Task).filter(Task.workspace_id == workspace.id, Task.archived_at.is_(None), Task.status != "done", Task.parent_id.is_(None))
+    base = db.query(Task).filter(
+        Task.workspace_id == workspace.id,
+        Task.archived_at.is_(None),
+        Task.status != "done",
+        Task.parent_id.is_(None),
+        Task.assignee_id == user.id,
+    )
     for task in base.filter(Task.is_inbox.is_(False), Task.due_date < today).order_by(Task.due_date).all():
         take(task)
         if len(out) >= 3:
@@ -59,7 +65,14 @@ def suggestions(db: Session, workspace: Workspace, user: User, today) -> list[di
         take(task)
         if len(out) >= 3:
             return out
-    for task in base.filter(Task.is_inbox.is_(True)).order_by(Task.created_at.desc()).all():
+    mine_inbox = db.query(Task).filter(
+        Task.workspace_id == workspace.id,
+        Task.archived_at.is_(None),
+        Task.is_inbox.is_(True),
+        Task.created_by == user.id,
+        Task.parent_id.is_(None),
+    )
+    for task in mine_inbox.order_by(Task.created_at.desc()).all():
         take(task)
         if len(out) >= 3:
             return out
@@ -80,7 +93,7 @@ def home_payload(db: Session, workspace: Workspace, user: User) -> dict:
     this_week = []
     for i in range(5):
         day = monday + timedelta(days=i)
-        count = _alive(q).filter(Task.due_date == day).count()
+        count = mine.filter(Task.due_date == day).count()
         this_week.append({"date": day.isoformat(), "weekday": day.strftime("%a"), "count": count})
     return {
         "greeting": greeting_word(user.timezone),

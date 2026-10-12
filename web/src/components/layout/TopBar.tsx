@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { BellGlyph, PlusGlyph, SearchGlyph } from "@/components/icons/AppIcons";
 import { api } from "@/lib/api";
+import { TopBarAccount } from "@/components/layout/AccountSession";
 import { QuickAdd } from "@/components/task/QuickAdd";
 import { useApp } from "@/lib/AppContext";
 
@@ -21,7 +22,10 @@ export function TopBar() {
   } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const guest = me?.workspace?.role === "guest";
+  const projectId = pathname.match(/^\/projects\/([^/]+)/)?.[1];
+  const taskId = pathname.match(/^\/tasks\/([^/]+)/)?.[1];
 
   useEffect(() => {
     if (!q.trim()) {
@@ -116,7 +120,7 @@ export function TopBar() {
       {!guest && (
         <button
           type="button"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded text-ink hover:bg-hover"
+          className="icon-btn relative"
           onClick={async () => {
             const data = await api<{ notifications: typeof notes }>("/api/notifications");
             setNotes(data.notifications);
@@ -128,11 +132,38 @@ export function TopBar() {
         </button>
       )}
       {!guest && (
-        <button type="button" onClick={() => setOpenAdd(true)} className="inline-flex h-9 items-center gap-1.5 rounded bg-accent px-3.5 text-sm font-semibold text-white hover:bg-accent-hover">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => {
+            const qs = new URLSearchParams();
+            if (taskId) {
+              qs.set("task", taskId);
+              qs.set("kind", "quick");
+            }
+            if (projectId) qs.set("project", projectId);
+            const query = qs.toString();
+            router.push(query ? `/notes/new?${query}` : "/notes/new");
+          }}
+        >
+          <PlusGlyph size={15} boxed={false} /> Note
+        </button>
+      )}
+      {!guest && (
+        <button type="button" onClick={() => setOpenAdd(true)} className="btn-primary">
           <PlusGlyph size={15} boxed={false} /> Task
         </button>
       )}
-      {openAdd && <QuickAdd onClose={() => setOpenAdd(false)} />}
+      <TopBarAccount />
+      {openAdd && (
+        <QuickAdd
+          defaultProjectId={projectId}
+          onClose={() => {
+            setOpenAdd(false);
+            window.dispatchEvent(new Event("workos:changed"));
+          }}
+        />
+      )}
     </header>
   );
 }

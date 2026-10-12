@@ -87,7 +87,7 @@ export function LinksEditor({
       >
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="h-9 w-36 rounded border border-line px-2 text-sm" />
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" className="h-9 min-w-48 flex-1 rounded border border-line px-2 text-sm" />
-        <button type="submit" className="h-9 rounded border border-line px-3 text-sm">
+        <button type="submit" className="btn-ghost">
           Add link
         </button>
       </form>

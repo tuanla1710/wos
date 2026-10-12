@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import hash_password, sign_session, verify_password
+from app.core.security import sign_session, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
-from app.schemas.common import LoginIn, RegisterIn
+from app.core.deps import current_user
+from app.schemas.common import LoginIn, PhoneSendIn, PhoneVerifyIn, RegisterIn
+from app.services.accounts import provision_user
+from app.services.phone import confirm_otp, issue_otp
 from app.services.serialize import user_out
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -25,24 +28,14 @@ def _set_session(response: Response, user_id: str) -> None:
 
 @router.post("/register")
 def register(body: RegisterIn, response: Response, db: Session = Depends(get_db)) -> dict:
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(400, "Email is already in use.")
-    user = User(
+    user, workspace = provision_user(
+        db,
+        name=body.name,
         email=str(body.email),
-        password_hash=hash_password(body.password),
-        name=body.name.strip(),
+        password=body.password,
         timezone=body.timezone or "Asia/Seoul",
+        phone=body.phone,
     )
-    db.add(user)
-    db.flush()
-    workspace = Workspace(name="Personal", owner_id=user.id)
-    db.add(workspace)
-    db.flush()
-    db.add(WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role="owner"))
-    from app.services.billing import ensure_customer, ensure_subscription
-
-    ensure_customer(db, user)
-    ensure_subscription(db, workspace, "free")
     db.commit()
     db.refresh(user)
     db.refresh(workspace)
@@ -55,6 +48,8 @@ def login(body: LoginIn, response: Response, db: Session = Depends(get_db)) -> d
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(400, "Email or password is wrong.")
+    if user.disabled_at is not None:
+        raise HTTPException(400, "This account is disabled.")
     member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == user.id).first()
     workspace = db.get(Workspace, member.workspace_id) if member else None
     if not workspace:
@@ -67,3 +62,27 @@ def login(body: LoginIn, response: Response, db: Session = Depends(get_db)) -> d
 def logout(response: Response) -> dict:
     response.delete_cookie(settings.cookie_name, path="/")
     return {"ok": True}
+
+
+@router.post("/phone/send")
+def send_phone_code(
+    body: PhoneSendIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> dict:
+    return issue_otp(db, user, body.phone)
+
+
+@router.post("/phone/verify")
+def verify_phone_code(
+    body: PhoneVerifyIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> dict:
+    confirm_otp(db, user, body.code)
+    member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == user.id).first()
+    workspace = db.get(Workspace, member.workspace_id) if member else None
+    if not workspace:
+        raise HTTPException(400, "Phone verification required.")
+    return user_out(user, workspace, role=member.role)
+

@@ -17,7 +17,7 @@
   }
 
   ::selection {
-    background: #d9e8e6;
+    background: #e4eaf3;
     color: #1c1917;
   }
 
@@ -42,14 +42,14 @@
   select:focus-visible,
   textarea:focus-visible {
     outline: none;
-    border-color: #1d4e4a;
-    box-shadow: 0 0 0 2px #d9e8e6;
+    border-color: #1b365d;
+    box-shadow: 0 0 0 2px #e4eaf3;
   }
 
   input[type="checkbox"] {
     width: 16px;
     height: 16px;
-    accent-color: #1d4e4a;
+    accent-color: #1b365d;
     cursor: pointer;
   }
 
@@ -103,19 +103,31 @@
   }
 
   .btn-primary {
-    @apply inline-flex h-9 items-center justify-center rounded bg-accent px-3.5 text-sm font-semibold text-white;
+    @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold text-white;
+    background: linear-gradient(160deg, #2c5282 0%, #1b365d 58%, #12243f 100%);
+    box-shadow: 0 1px 2px rgba(19, 40, 71, 0.24);
   }
 
-  .btn-primary:hover {
-    background-color: #163d3a;
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(160deg, #234672 0%, #132847 100%);
   }
 
   .btn-ghost {
-    @apply inline-flex h-9 items-center justify-center rounded px-3 text-sm text-ink hover:bg-hover;
+    @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line bg-elev px-3 text-sm font-medium text-ink hover:bg-hover;
+  }
+
+  .btn-danger {
+    @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold text-white;
+    background: linear-gradient(160deg, #c9372c 0%, #b42318 100%);
+    box-shadow: 0 1px 2px rgba(180, 35, 24, 0.2);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: linear-gradient(160deg, #b42318 0%, #912018 100%);
   }
 
   .icon-btn {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded text-ink hover:bg-hover;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink hover:bg-hover;
   }
 
   .field {
@@ -131,13 +143,15 @@
   }
 
   .icon-tile {
-    border-radius: 4px;
-    color: inherit;
-    background: transparent;
+    border-radius: 6px;
   }
 
   .icon-tile-active {
-    color: inherit;
+    filter: saturate(1.08);
+  }
+
+  .brand-mark {
+    box-shadow: 0 1px 2px rgba(19, 40, 71, 0.24);
   }
 
   .grab-chip {
@@ -175,14 +189,14 @@
   .npp-editor {
     background: #ffffff;
     color: #1c1917;
-    caret-color: #1d4e4a;
+    caret-color: #1b365d;
     white-space: pre;
     overflow: auto;
   }
 
   .npp-status {
-    background: #d9e8e6;
-    color: #1d4e4a;
+    background: #e4eaf3;
+    color: #1b365d;
   }
 
   .rich-note {

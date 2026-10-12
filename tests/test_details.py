@@ -62,6 +62,19 @@ def test_workspace_isolation(user):
     assert home["counts"]["inbox"] == 0
 
 
+def test_teammate_cannot_see_private_inbox(user):
+    user.post("/api/billing/subscribe")
+    user.post("/api/tasks", json={"title": "Ada secret capture"})
+    other = invite_and_join(user, "minho@example.com", "Minho")
+    inbox = [t["title"] for t in other.get("/api/tasks?tab=inbox").json()["tasks"]]
+    assert "Ada secret capture" not in inbox
+    titles = [t["title"] for t in other.get("/api/home").json()["suggestions"]]
+    assert "Ada secret capture" not in titles
+    found = [t["title"] for t in other.get("/api/search?q=secret").json()["tasks"]]
+    assert "Ada secret capture" not in found
+    assert other.get("/api/home").json()["counts"]["inbox"] == 0
+
+
 def test_revoke_invite_cannot_accept(user):
     user.post("/api/billing/subscribe")
     inv = user.post("/api/workspace/invites", json={"email": "minho@example.com", "role": "member"}).json()

@@ -13,7 +13,7 @@ const PHASE: Record<BeatPhase, { label: string; color: string; soft: string }> =
   start: { label: "Start", color: "#57534E", soft: "#F5F5F4" },
   hook: { label: "Hook", color: "#B54708", soft: "#FEF6EE" },
   explore: { label: "Explore", color: "#175CD3", soft: "#EFF4FF" },
-  build: { label: "Build", color: "#1D4E4A", soft: "#E6F0EF" },
+  build: { label: "Build", color: "#1B365D", soft: "#E4EAF3" },
   practice: { label: "Practice", color: "#6941C6", soft: "#F4F3FF" },
   wrap: { label: "Wrap up", color: "#067647", soft: "#ECFDF3" },
 };

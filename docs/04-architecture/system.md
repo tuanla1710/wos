@@ -64,7 +64,7 @@ Phase 2+ optional actors: invitee, SMTP (optional), MinIO/S3, cron for due notif
 │  Tailwind           │                 └──────────┬──────────┘
 │  :3000              │                            │
 └─────────────────────┘                            │ SQL
-                      dev rewrite /api → :8000     ▼
+                      same-origin /api → :8080     ▼
                                           ┌─────────────────────┐
                                           │  db                 │
                                           │  PostgreSQL 16      │
@@ -78,7 +78,7 @@ Phase 2+ optional actors: invitee, SMTP (optional), MinIO/S3, cron for due notif
 | `api` | Auth, domain rules, queries, JSON | Rendering HTML |
 | `db` | Persistence | Cache, files |
 
-Local: `docker compose` runs **only Postgres**. `web` and `api` run on the host (`npm run dev`, `uvicorn`).
+Local: `docker compose up --build` runs **web + api + Postgres**. Optional host-dev: compose `db` only, then `npm run dev` and `uvicorn` on the host.
 
 ### Phase 2–3 add-ons (not in compose yet)
 
@@ -322,17 +322,18 @@ JSON only. No GraphQL. No public API until Phase 3.
 ### Local
 
 ```
-docker compose up -d db
-uvicorn app.main:app --reload --port 8000   # /api
-npm run dev                                 # :3000
+docker compose up --build
+# web :3000  ·  api :8080  ·  db :5432
 ```
+
+Optional host-dev: `docker compose up -d db`, then `uvicorn` on `:8080` and `npm run dev` on `:3000`.
 
 ### Phase 1 production (when needed)
 
 ```
 ┌────────────┐     ┌────────────┐     ┌────────────┐
 │  web image │────►│  api image │────►│  Postgres  │
-│  :3000     │     │  :8000     │     │            │
+│  :3000     │     │  :8080     │     │            │
 └────────────┘     └────────────┘     └────────────┘
 ```
 

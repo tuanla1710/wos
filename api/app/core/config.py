@@ -9,6 +9,14 @@ class Settings(BaseSettings):
     session_days: int = 30
     cookie_name: str = "session"
     web_origin: str = "http://localhost:3000"
+    admin_email: str = "admin@workos.dev"
+    admin_password: str = "Admin1234"
+    admin_name: str = "Admin"
+    phone_default_country: str = "82"
+    sms_provider: str = "console"
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from: str = ""
 
 
 settings = Settings()
