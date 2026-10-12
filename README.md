@@ -59,22 +59,76 @@ qlcv/
         └── api/routes/               # auth, me, home, tasks, …
 ```
 
-## Run (Docker)
+## Compile, build, deploy (Docker only)
 
-Host stays clean: only Docker. No host Node or Python.
+Host stays clean: Docker Engine + Compose. No host Node or Python.
+
+Stack: **web** (Next.js production build, `:3000`) → **api** (FastAPI + Alembic, `:8080`) → **db** (Postgres 16, `:5432`). Changing UI/API code requires a **rebuild**; `db` is an image, not compiled.
+
+### 1. Configure
 
 ```bash
 cp .env.example .env
-docker compose up --build
 ```
 
-Web: `http://localhost:3000` · API: `http://localhost:8080` · Docs: `http://localhost:8080/docs`
+Change before first boot:
 
-Platform admin (manages every account): `admin@workos.dev` / `Admin1234`. Change these in `.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`) before first boot.
+| Variable | Why |
+|---|---|
+| `SECRET_KEY` | Session signing. Do not leave `change-me` on a real host. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Seeded platform admin on first API boot. |
+| `WEB_ORIGIN` | Browser origin the API allows (local: `http://localhost:3000`). |
+| `WEB_PORT` / `API_PORT` | Host ports if 3000/8080 are taken. |
+| `SMS_PROVIDER` | `console` logs OTP locally. `twilio` needs `TWILIO_*`. |
 
-Phone verification is required after sign-in. Local default `SMS_PROVIDER=console` logs the 6-digit code (and shows it on the verify screen). For real SMS, set `SMS_PROVIDER=twilio` plus `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM`. Default country code is `+82`.
+Compose ignores host `DATABASE_URL`. The API container always talks to service `db`.
 
-Compose builds `web` + `api`, starts Postgres, then runs Alembic on API boot. Uploads persist in the `api_uploads` volume.
+### 2. Build and start
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+`--build` compiles:
+
+- **api** — `pip install` + copy FastAPI app. On start: `alembic upgrade head`, then uvicorn.
+- **web** — `npm ci` + `next build` (standalone). Serves `node server.js`.
+- **db** — official `postgres:16-alpine`. Data in volume `pgdata`. Uploads in `api_uploads`.
+
+Open:
+
+- Web: `http://localhost:3000`
+- API: `http://localhost:8080/health`
+- OpenAPI: `http://localhost:8080/docs`
+
+First login: `admin@workos.dev` / `Admin1234` (or your `.env` values). Phone OTP is required; with `SMS_PROVIDER=console` the 6-digit code is in API logs and on the verify screen.
+
+### 3. Rebuild after code changes
+
+Images copy source at **build** time. Edit files, then rebuild the service you changed:
+
+```bash
+docker compose up --build -d web    # UI / Next.js
+docker compose up --build -d api    # FastAPI / Alembic
+docker compose up --build -d        # everything
+```
+
+Alembic runs on every API container start. New migrations in `api/alembic/versions/` apply on that restart.
+
+### 4. Logs, tests, stop
+
+```bash
+docker compose logs -f --tail=100
+docker compose logs -f api
+docker compose run --rm --entrypoint python api -m pytest -q
+docker compose down                 # keep volumes (DB + uploads)
+docker compose down -v              # wipe Postgres and uploads
+```
+
+### 5. One VM / production
+
+Same compose file. Put TLS on a reverse proxy (Caddy or nginx) in front of `:3000`. Set `WEB_ORIGIN` to the public https origin. Do **not** publish Postgres (`5432`) on a public interface — drop that `ports:` mapping or bind it to `127.0.0.1`. Keep `SECRET_KEY` and `ADMIN_PASSWORD` out of git (`.env` is gitignored).
 
 ## Run (host + Docker Postgres)
 
