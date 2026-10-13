@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandLockup } from "@/components/icons/AppIcons";
@@ -18,7 +17,7 @@ export default function LoginPage() {
     <main className="relative z-10 flex min-h-screen items-center justify-center px-4">
       <div className="w-[360px] rounded-lg border border-line bg-elev p-8 shadow-modal">
         <div className="mb-6">
-          <BrandLockup size={28} large subtitle="Log in to your account" />
+          <BrandLockup size={40} large subtitle="Log in to your account" />
         </div>
         <form
           className="space-y-3"
@@ -40,9 +39,7 @@ export default function LoginPage() {
             Log in
           </button>
         </form>
-        <Link href="/register" className="mt-4 block text-center text-sm font-medium text-accent">
-          Create account
-        </Link>
+        <p className="mt-4 text-center text-[12px] text-muted">New accounts are created by an admin.</p>
       </div>
     </main>
   );

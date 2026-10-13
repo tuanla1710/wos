@@ -153,10 +153,20 @@ def test_p2_empty_project_name(user):
     assert res.status_code in {400, 422}
 
 
+def test_p7_delete_project_requires_password(user):
+    project = user.post("/api/projects", json={"name": "Temp"}).json()
+    missing = user.delete(f"/api/projects/{project['id']}", json={"task_action": "my_tasks"})
+    assert missing.status_code == 422
+    wrong = user.delete(f"/api/projects/{project['id']}", json={"task_action": "my_tasks", "password": "not-it"})
+    assert wrong.status_code == 400
+    assert wrong.json()["detail"] == "Password is wrong."
+    assert user.get(f"/api/projects/{project['id']}").status_code == 200
+
+
 def test_p7_delete_project_keeps_tasks(user):
     project = user.post("/api/projects", json={"name": "Temp"}).json()
     task = user.post("/api/tasks", json={"title": "Keep", "project_id": project["id"]}).json()
-    user.delete(f"/api/projects/{project['id']}", json={"task_action": "my_tasks"})
+    user.delete(f"/api/projects/{project['id']}", json={"task_action": "my_tasks", "password": "password1"})
     left = user.get(f"/api/tasks/{task['id']}").json()
     assert left["project_id"] is None
     assert left["is_inbox"] is False

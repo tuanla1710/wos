@@ -1,4 +1,4 @@
-import { useId, type SVGProps } from "react";
+import { useId, type ReactNode, type SVGProps } from "react";
 
 type GlyphProps = { size?: number; className?: string };
 
@@ -139,6 +139,49 @@ export function FolderGlyph({ size = 16, className }: GlyphProps) {
         {...stroke}
         d="M4.7 8.6A1.3 1.3 0 0 1 6 7.3h3.7l1.45 1.65h6.1A1.3 1.3 0 0 1 18.55 10.25v7A1.3 1.3 0 0 1 17.25 18.55H6.05A1.35 1.35 0 0 1 4.7 17.2V8.6Z"
       />
+    </Svg>
+  );
+}
+
+export function LayersGlyph({ size = 16, className }: GlyphProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path {...fill} d="M4.6 9.2 12 5.6l7.4 3.6-7.4 3.6-7.4-3.6Z" />
+      <path {...stroke} d="M4.8 9.15 12 5.7l7.2 3.45L12 12.6 4.8 9.15Z" />
+      <path {...stroke} d="M4.8 12.35 12 15.8l7.2-3.45" />
+      <path {...stroke} d="M4.8 15.15 12 18.6l7.2-3.45" />
+    </Svg>
+  );
+}
+
+export function BinderGlyph({ size = 16, className }: GlyphProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect {...fill} x="5.4" y="4.6" width="13.2" height="14.8" rx="2.2" />
+      <rect {...stroke} x="5.8" y="5" width="12.4" height="14" rx="1.8" />
+      <path {...stroke} d="M5.8 8.4h12.4M5.8 12h12.4M5.8 15.6h12.4" />
+      <path {...stroke} d="M4.4 8.1h2.2M4.4 11.7h2.2M4.4 15.3h2.2" />
+    </Svg>
+  );
+}
+
+export function SheetGlyph({ size = 16, className }: GlyphProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path {...fill} d="M7.1 4.5h6.6L18.4 9.2V18.6A1.6 1.6 0 0 1 16.8 20.2H7.1A1.6 1.6 0 0 1 5.5 18.6V6.1A1.6 1.6 0 0 1 7.1 4.5Z" />
+      <path {...stroke} d="M13.6 4.7v4.1h4.1" />
+      <path {...stroke} d="M7.2 5h6.2L17.7 9.3v9.2A1.1 1.1 0 0 1 16.6 19.6H7.2A1.1 1.1 0 0 1 6.1 18.5V6.1A1.1 1.1 0 0 1 7.2 5Z" />
+      <path {...stroke} d="M8.8 12.8h6.2M8.8 15.7h4.4" />
+    </Svg>
+  );
+}
+
+export function ChipGlyph({ size = 16, className }: GlyphProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path {...fill} d="M12 5.2 18.8 12 12 18.8 5.2 12 12 5.2Z" />
+      <path {...stroke} d="M12 5.6 18.4 12 12 18.4 5.6 12 12 5.6Z" />
+      <circle cx="12" cy="12" r="1.35" fill="currentColor" />
     </Svg>
   );
 }
@@ -313,6 +356,40 @@ const glyphs = {
   star: StarGlyph,
 } as const;
 
+function TintedWell({
+  bg,
+  fg,
+  active,
+  size,
+  title,
+  className = "",
+  children,
+}: {
+  bg: string;
+  fg: string;
+  active?: boolean;
+  size: number;
+  title?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      title={title}
+      className={`icon-tile inline-flex shrink-0 items-center justify-center ${active ? "icon-tile-active" : ""} ${className}`}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: bg,
+        color: fg,
+        boxShadow: `inset 0 0 0 1px ${fg}${active ? "40" : "22"}`,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function IconTile({
   name,
   active,
@@ -330,49 +407,81 @@ export function IconTile({
   const tone = iconTones[name];
   const mark = glyphSize ?? Math.max(14, Math.round(size * 0.72));
   return (
-    <span
-      className={`icon-tile inline-flex shrink-0 items-center justify-center ${active ? "icon-tile-active" : ""} ${className}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: tone.bg,
-        color: tone.fg,
-        boxShadow: `inset 0 0 0 1px ${tone.fg}${active ? "40" : "22"}`,
-      }}
-    >
+    <TintedWell bg={tone.bg} fg={tone.fg} active={active} size={size} className={className}>
       <Glyph size={mark} />
-    </span>
+    </TintedWell>
   );
 }
 
-export function BrandMark({ size = 24 }: { size?: number }) {
+const PROJECT_LEVELS = [
+  { Glyph: LayersGlyph, bg: "#D5DEEA", fg: "#1B365D", label: "Top-level project" },
+  { Glyph: FolderGlyph, bg: "#C9E4FC", fg: "#175CD3", label: "Level 2 project" },
+  { Glyph: BinderGlyph, bg: "#C5E6F5", fg: "#075985", label: "Level 3 project" },
+  { Glyph: SheetGlyph, bg: "#E4E0D6", fg: "#1B365D", label: "Level 4 project" },
+  { Glyph: ChipGlyph, bg: "#EFEDE6", fg: "#78716C", label: "Level 5 project" },
+] as const;
+
+export function ProjectLevelTile({
+  depth,
+  active,
+  size = 22,
+  className = "",
+}: {
+  depth: number;
+  active?: boolean;
+  size?: number;
+  className?: string;
+}) {
+  const level = PROJECT_LEVELS[Math.min(Math.max(depth, 0), PROJECT_LEVELS.length - 1)];
+  const Glyph = level.Glyph;
+  const mark = Math.max(14, Math.round(size * 0.72));
+  return (
+    <TintedWell bg={level.bg} fg={level.fg} active={active} size={size} className={className} title={level.label}>
+      <Glyph size={mark} />
+    </TintedWell>
+  );
+}
+
+export function BrandMark({ size = 24, lux = false }: { size?: number; lux?: boolean }) {
   const gid = useId().replace(/:/g, "");
-  const radius = Math.max(6, Math.round(size * 0.26));
+  const radius = Math.max(7, Math.round(size * 0.28));
   return (
     <span
-      className="brand-mark inline-flex shrink-0 items-center justify-center text-white"
+      className={`brand-mark inline-flex shrink-0 items-center justify-center text-white ${lux ? "brand-mark-lux" : ""}`}
       style={{ width: size, height: size, borderRadius: radius }}
       aria-hidden
     >
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
         <defs>
-          <linearGradient id={`wos-${gid}`} x1="4" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#2C5282" />
-            <stop offset="1" stopColor="#12243F" />
+          <linearGradient id={`wos-bg-${gid}`} x1="3" y1="1" x2="30" y2="31" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#5B86C4" />
+            <stop offset="0.42" stopColor="#1B365D" />
+            <stop offset="1" stopColor="#091322" />
+          </linearGradient>
+          <linearGradient id={`wos-sheen-${gid}`} x1="16" y1="2" x2="16" y2="15" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#fff" stopOpacity="0.34" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id={`wos-check-${gid}`} x1="8" y1="23" x2="24" y2="10" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#D7E4F4" />
+            <stop offset="1" stopColor="#FFFFFF" />
           </linearGradient>
         </defs>
-        <rect width="24" height="24" rx="6.5" fill={`url(#wos-${gid})`} />
-        <rect x="1" y="1" width="22" height="22" rx="5.6" stroke="white" strokeOpacity="0.18" />
-        <path d="M5.2 8.1h13.6" stroke="white" strokeOpacity="0.28" strokeWidth="1.2" strokeLinecap="round" />
-        <circle cx="7.1" cy="8.1" r="0.7" fill="white" fillOpacity="0.55" />
-        <circle cx="9.2" cy="8.1" r="0.7" fill="white" fillOpacity="0.38" />
+        <rect width="32" height="32" rx="9" fill={`url(#wos-bg-${gid})`} />
+        <rect x="1.15" y="1.15" width="29.7" height="29.7" rx="7.9" stroke="white" strokeOpacity="0.22" />
+        <path d="M9 1.4h14c4.2 0 7.6 3.4 7.6 7.6V12H1.4V9C1.4 4.8 4.8 1.4 9 1.4Z" fill={`url(#wos-sheen-${gid})`} />
+        <path d="M5.4 9.4h21.2" stroke="white" strokeOpacity="0.22" strokeWidth="1.15" strokeLinecap="round" />
+        <circle cx="7.5" cy="9.4" r="1.05" fill="#F4D58D" fillOpacity="0.92" />
+        <circle cx="10.7" cy="9.4" r="1.05" fill="white" fillOpacity="0.55" />
+        <circle cx="13.9" cy="9.4" r="1.05" fill="white" fillOpacity="0.28" />
         <path
-          d="M7.6 13.15 10.35 15.8 16.55 9.15"
-          stroke="white"
-          strokeWidth="2.05"
+          d="M9.1 17.55 14.15 22.4 23.35 11.2"
+          stroke={`url(#wos-check-${gid})`}
+          strokeWidth="2.55"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        <path d="M23.15 9.35 24.55 10.75 23.15 12.15 21.75 10.75Z" fill="#F4D58D" fillOpacity="0.95" />
       </svg>
     </span>
   );
@@ -389,7 +498,7 @@ export function BrandLockup({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">
-      <BrandMark size={size} />
+      <BrandMark size={size} lux={large} />
       <div className="min-w-0">
         <p className={`truncate font-semibold tracking-tight ${large ? "text-xl leading-7" : "text-sm leading-5"}`}>
           <span className="text-ink">Work</span>

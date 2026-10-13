@@ -1,10 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.access import guest_project_ids, require_not_guest, require_roles
 from app.core.deps import current_membership, current_user, current_workspace
+from app.core.security import verify_password
 from app.models.workspace import WorkspaceMember
 from app.db.session import get_db
 from app.models.user import User
@@ -76,10 +77,13 @@ def delete_project_route(
     project_id: UUID,
     body: ProjectDeleteIn,
     db: Session = Depends(get_db),
+    user: User = Depends(current_user),
     member: WorkspaceMember = Depends(current_membership),
     workspace: Workspace = Depends(current_workspace),
 ) -> dict:
     require_roles(member, "owner", "admin")
+    if not verify_password(body.password, user.password_hash):
+        raise HTTPException(400, "Password is wrong.")
     project = get_project(db, workspace, project_id)
     delete_project(db, workspace, project, body.task_action)
     return {"ok": True}

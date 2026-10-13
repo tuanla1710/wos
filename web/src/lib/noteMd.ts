@@ -74,6 +74,7 @@ export const CODE_LANGS = [
   { id: "bash", label: "Bash" },
   { id: "sql", label: "SQL" },
   { id: "json", label: "JSON" },
+  { id: "mermaid", label: "Mermaid" },
   { id: "text", label: "Text" },
 ] as const;
 
@@ -253,6 +254,7 @@ const PHASE_OF: Record<string, BeatPhase> = {
   python: "build",
   algorithm: "build",
   code: "build",
+  mermaid: "build",
   practice: "practice",
   challenge: "practice",
   test: "practice",

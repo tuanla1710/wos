@@ -380,7 +380,18 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
 
       {teach && <LectureTeach title={title} body={body} onAuthor={canEdit ? () => setMode("author") : undefined} />}
 
-      {rich && <RichNoteEditor value={body} onChange={setBody} upload={uploadImage} onAttach={() => file.current?.click()} tools={fileTools} />}
+      {rich && (
+        <RichNoteEditor
+          value={body}
+          onChange={setBody}
+          upload={uploadImage}
+          onAttach={() => file.current?.click()}
+          onMarkdownFile={(name) => {
+            if (!title.trim() || title === "Untitled") setTitle(name);
+          }}
+          tools={fileTools}
+        />
+      )}
 
       {!teach && !preview && canEdit && !rich && (
         <>
@@ -415,6 +426,18 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
                   ))}
                 </select>
               </div>
+              <Tool
+                onClick={() => {
+                  const sample = "```mermaid\nflowchart LR\n  A[Start] --> B[Done]\n```\n";
+                  const el = area.current;
+                  const start = el?.selectionStart ?? body.length;
+                  const end = el?.selectionEnd ?? body.length;
+                  const lead = start > 0 && body[start - 1] !== "\n" ? "\n\n" : "";
+                  apply(body.slice(0, start) + lead + sample + body.slice(end), start + lead.length + sample.length);
+                }}
+              >
+                Mermaid
+              </Tool>
               <Tool onClick={() => prefix("> TIP: ")}>Tip</Tool>
               <Tool onClick={() => prefix("> WARNING: ")}>Warn</Tool>
               <Tool onClick={() => prefix("> PITFALL: ")}>Pitfall</Tool>
@@ -440,7 +463,18 @@ export function NoteEditor({ initial, onSaved }: { initial: WorkNote; onSaved?: 
               plainPaste.current = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "v";
             }}
             onPaste={onPaste}
-            placeholder="Write the note…"
+            onDrop={(e) => {
+              const docs = Array.from(e.dataTransfer.files).filter((f) => /\.(md|markdown|txt)$/i.test(f.name));
+              if (!docs.length) return;
+              e.preventDefault();
+              void (async () => {
+                const chunks = await Promise.all(docs.map((f) => f.text()));
+                const text = chunks.map((t) => t.replace(/\r\n/g, "\n")).join("\n\n");
+                if (!title.trim() || title === "Untitled") setTitle(docs[0].name.replace(/\.(md|markdown|txt)$/i, ""));
+                setBody(body.trim() ? `${body}\n\n${text}` : text);
+              })();
+            }}
+            placeholder="Write Markdown…"
             className={`min-h-[360px] w-full resize-none border-0 bg-transparent p-0 outline-none placeholder:text-faint ${lecture ? "font-mono text-sm leading-[22px]" : "text-base leading-7"}`}
           />
         </>

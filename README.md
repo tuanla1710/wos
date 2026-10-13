@@ -104,6 +104,8 @@ Open:
 
 First login: `admin@workos.dev` / `Admin1234` (or your `.env` values). Phone OTP is required; with `SMS_PROVIDER=console` the 6-digit code is in API logs and on the verify screen.
 
+Public sign-up is closed (`PUBLIC_REGISTER=false`). New users are created in **Settings → People** by a platform admin.
+
 ### 3. Rebuild after code changes
 
 Images copy source at **build** time. Edit files, then rebuild the service you changed:

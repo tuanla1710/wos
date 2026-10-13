@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, downloadReviewReport } from "@/lib/api";
 import type { ReviewData, Task } from "@/lib/types";
 import { useApp } from "@/lib/AppContext";
@@ -126,7 +126,7 @@ export default function ReviewPage() {
     return (
       <div className="mx-auto max-w-[880px] p-8">
         <h1 className="text-xl font-semibold">Weekly Review</h1>
-        <p className="mt-3 text-sm text-muted">{error || "Loading weekly review…"}</p>
+        <p className="mt-3 text-sm text-muted">{error || "Loading weekly report…"}</p>
         {error && (
           <button type="button" className="btn-primary mt-4" onClick={() => void load()}>
             Try again
@@ -140,9 +140,9 @@ export default function ReviewPage() {
     <div className="mx-auto max-w-[880px] p-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="section-label">Review</p>
-          <h1 className="mt-1 text-xl font-semibold">Weekly Review · {formatReviewRange(data.week_start, data.week_end)}</h1>
-          <p className="mt-1 text-sm text-muted">Close the week. Reschedule or drop overdue work, then pick next week’s Focus.</p>
+          <p className="section-label">Weekly Review</p>
+          <h1 className="mt-1 text-xl font-semibold">{formatReviewRange(data.week_start, data.week_end)}</h1>
+          <p className="mt-1 text-sm text-muted">Last week’s done work, this week’s progress, and next week’s plan.</p>
         </div>
         <button type="button" className="btn-ghost" disabled={exporting} onClick={() => void exportDoc()}>
           {exporting ? "Exporting…" : "Export report"}
@@ -150,25 +150,29 @@ export default function ReviewPage() {
       </div>
 
       {error && <p className="mt-3 text-sm text-overdue">{error}</p>}
-      {done && <p className="mt-3 text-sm text-accent">Review saved. Home will hide the Friday banner until next week.</p>}
+      {done && <p className="mt-3 text-sm text-accent">Report saved. Home will hide the Friday banner until next week.</p>}
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Completed" value={data.completed} />
-        <Stat label="Overdue" value={data.overdue.length} />
-        <Stat label="Blocked" value={data.blocked.length} />
-        <Stat label="Due next week" value={data.due_next_week.length} />
+        <Stat label="Last week done" value={data.last_week_done.length} />
+        <Stat label="This week done" value={data.this_week_done.length} />
+        <Stat label="This week doing" value={data.this_week_doing.length} />
+        <Stat label="Next week" value={data.next_week_planned.length} />
       </div>
 
-      <p className="section-label mt-8">Completed this week</p>
-      <div className="mt-2 overflow-hidden rounded-xl glass">
-        {data.completed_tasks.length === 0 && <p className="px-4 py-3 text-sm text-muted">No completed tasks this week.</p>}
-        {data.completed_tasks.map((t) => (
-          <Link key={t.id} href={`/tasks/${t.id}`} className="flex h-11 items-center gap-3 border-b border-line px-4 text-sm last:border-0 hover:bg-hover">
-            <span className="flex-1 truncate text-muted line-through">{t.title}</span>
-            <span className="text-xs text-muted">{formatDue(t.due_date)}</span>
-          </Link>
-        ))}
-      </div>
+      <WeekSection title="Last week" range={formatReviewRange(data.last_week_start, data.last_week_end)} hint="Work finished last week.">
+        <TaskList tasks={data.last_week_done} empty="No tasks finished last week." done />
+      </WeekSection>
+
+      <WeekSection title="This week" range={formatReviewRange(data.week_start, data.week_end)} hint="Finished and in progress this week.">
+        <p className="border-b border-line px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Done</p>
+        <TaskList tasks={data.this_week_done} empty="No tasks finished this week." done />
+        <p className="border-b border-t border-line px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Doing</p>
+        <TaskList tasks={data.this_week_doing} empty="No tasks in progress this week." />
+      </WeekSection>
+
+      <WeekSection title="Next week" range={formatReviewRange(data.plan_week_start, data.plan_week_end)} hint="Work due or focused for next week.">
+        <TaskList tasks={data.next_week_planned} empty="No tasks planned for next week." />
+      </WeekSection>
 
       {data.projects.length > 0 && (
         <>
@@ -290,6 +294,39 @@ export default function ReviewPage() {
       )}
 
     </div>
+  );
+}
+
+function statusLabel(status: Task["status"]) {
+  if (status === "in_progress") return "In progress";
+  if (status === "todo") return "To do";
+  if (status === "blocked") return "Blocked";
+  return "Done";
+}
+
+function WeekSection({ title, range, hint, children }: { title: string; range: string; hint: string; children: ReactNode }) {
+  return (
+    <section className="mt-8">
+      <p className="section-label">{title}</p>
+      <h2 className="mt-1 text-base font-semibold">{range}</h2>
+      <p className="mt-1 text-sm text-muted">{hint}</p>
+      <div className="mt-2 overflow-hidden rounded-xl glass">{children}</div>
+    </section>
+  );
+}
+
+function TaskList({ tasks, empty, done }: { tasks: Task[]; empty: string; done?: boolean }) {
+  if (tasks.length === 0) return <p className="px-4 py-3 text-sm text-muted">{empty}</p>;
+  return (
+    <>
+      {tasks.map((task) => (
+        <Link key={task.id} href={`/tasks/${task.id}`} className="flex h-11 items-center gap-3 border-b border-line px-4 text-sm last:border-0 hover:bg-hover">
+          <span className={`flex-1 truncate ${done ? "text-muted line-through" : "font-medium"}`}>{task.title}</span>
+          <span className="text-xs capitalize text-muted">{done ? "Done" : statusLabel(task.status)}</span>
+          <span className="text-xs text-muted">{formatDue(task.due_date)}</span>
+        </Link>
+      ))}
+    </>
   );
 }
 

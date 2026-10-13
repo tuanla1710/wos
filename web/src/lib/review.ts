@@ -42,10 +42,28 @@ export function needsWeekendReviewPrompt(weekStart: string) {
   return weekend && !isReviewDone(weekStart);
 }
 
+/** ISO-8601 week (Monday start). Week 1 is the week with the first Thursday. */
+export function isoWeekParts(isoDate: string): { week: number; year: number } {
+  const date = new Date(`${isoDate}T12:00:00`);
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const year = d.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(year, 0, 1));
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { week, year };
+}
+
+export function formatWeekOfYear(isoDate: string) {
+  const { week, year } = isoWeekParts(isoDate);
+  return `Week ${week}, ${year}`;
+}
+
 export function formatReviewRange(start: string, end: string) {
   const a = new Date(`${start}T12:00:00`);
   const b = new Date(`${end}T12:00:00`);
-  return `${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${b.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const span = `${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${b.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  return `${formatWeekOfYear(start)} · ${span}`;
 }
 
 export function formatDue(iso: string | null | undefined) {

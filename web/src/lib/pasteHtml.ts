@@ -14,13 +14,32 @@ export function htmlToMarkdown(html: string): string {
     .trim();
 }
 
+const MD_LINE = /^(#{1,6} |\s{0,3}```|\s{0,3}~~~|\s{0,3}>\s|\s{0,3}[-*+] |\s{0,3}\d+\. |\s{0,3}[-*+] \[[ xX]\] |\s{0,3}\|?.+\|.+\||-{3,}\s*$)/;
+
+export function looksLikeMarkdown(text: string): boolean {
+  const t = text.replace(/\r\n/g, "\n").trim();
+  if (t.length < 2) return false;
+  if (MD_LINE.test(t)) return true;
+  const hits = t.split("\n").filter((line) => MD_LINE.test(line)).length;
+  if (hits >= 2) return true;
+  return /(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[^\]]+\]\([^)\s]+\)|!\[[^\]]*\]\([^)\s]+\))/.test(t);
+}
+
 /** Markdown for a paste event, or null to let the browser paste plain text. */
 export function markdownFromPaste(data: DataTransfer | null, plain: boolean): string | null {
   if (!data || plain) return null;
   const html = data.getData("text/html");
-  if (!html || !RICH.test(html)) return null;
-  const md = htmlToMarkdown(html);
-  return md || null;
+  if (html && RICH.test(html)) {
+    const md = htmlToMarkdown(html);
+    if (md) return md;
+  }
+  const text = data.getData("text/plain").replace(/\r\n/g, "\n");
+  if (text && looksLikeMarkdown(text)) return text;
+  return null;
+}
+
+export function markdownFiles(data: DataTransfer | null): File[] {
+  return Array.from(data?.files ?? []).filter((file) => /\.(md|markdown|txt)$/i.test(file.name));
 }
 
 function blocks(el: Node): string[] {

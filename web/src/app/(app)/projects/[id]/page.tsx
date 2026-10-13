@@ -9,7 +9,9 @@ import { IssueList } from "@/components/task/IssueList";
 import { TaskRow } from "@/components/task/TaskRow";
 import { useApp } from "@/lib/AppContext";
 import { allowDrop, currentDrag, endDrag, parseDragData, setDragData } from "@/lib/dnd";
-import { ancestorIds, canMoveUnder, descendantIds } from "@/lib/nesting";
+import { ancestorIds, canMoveUnder, descendantIds, projectDepth } from "@/lib/nesting";
+import { ProjectLevelTile } from "@/components/icons/AppIcons";
+import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { LinksEditor } from "@/components/ui/LinksEditor";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
 
@@ -41,6 +43,8 @@ export default function ProjectPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [childName, setChildName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; leave: boolean } | null>(null);
+  const [taskAction, setTaskAction] = useState<"my_tasks" | "inbox">("my_tasks");
 
   const load = useCallback(async () => {
     try {
@@ -91,6 +95,7 @@ export default function ProjectPage() {
     <div className="p-6">
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          <ProjectLevelTile depth={projectDepth(projects, id)} size={26} />
           {data.key && <span className="rounded bg-accent-soft px-2 py-0.5 text-[12px] font-semibold tabular-nums text-accent">{data.key}</span>}
           <input
             defaultValue={data.name}
@@ -105,19 +110,18 @@ export default function ProjectPage() {
             className="min-w-0 flex-1 bg-transparent text-xl font-semibold outline-none"
           />
         </div>
-        <button
-          type="button"
-          className="btn-danger"
-          onClick={async () => {
-            if (!confirm(`Delete project “${data.name}”? Tasks are not deleted.`)) return;
-            const action = confirm("OK = Keep in My Tasks. Cancel = Move to Inbox") ? "my_tasks" : "inbox";
-            await api(`/api/projects/${id}`, { method: "DELETE", body: JSON.stringify({ task_action: action }) });
-            await refresh();
-            router.push("/");
-          }}
-        >
-          Delete project
-        </button>
+        {!guest && (
+          <button
+            type="button"
+            className="btn-danger"
+            onClick={() => {
+              setTaskAction("my_tasks");
+              setDeleteTarget({ id, name: data.name, leave: true });
+            }}
+          >
+            Delete project
+          </button>
+        )}
       </div>
       {error && <p className="mt-2 text-sm text-overdue">{error}</p>}
       <div className="mt-4 flex gap-4 border-b border-line">
@@ -210,6 +214,7 @@ export default function ProjectPage() {
                 }}
                 className={`flex h-9 items-center gap-2 ${guest ? "" : "cursor-grab active:cursor-grabbing"}`}
               >
+                <ProjectLevelTile depth={projectDepth(projects, child.id)} />
                 <button type="button" className="flex-1 truncate text-left" onClick={() => router.push(`/projects/${child.id}`)}>
                   {child.name}
                 </button>
@@ -218,18 +223,18 @@ export default function ProjectPage() {
                     Unlink
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="text-overdue"
-                  onClick={async () => {
-                    if (!confirm(`Delete project “${child.name}”? Tasks are not deleted.`)) return;
-                    await api(`/api/projects/${child.id}`, { method: "DELETE", body: JSON.stringify({ task_action: "my_tasks" }) });
-                    await refresh();
-                    await load();
-                  }}
-                >
-                  Delete
-                </button>
+                {!guest && (
+                  <button
+                    type="button"
+                    className="text-overdue"
+                    onClick={() => {
+                      setTaskAction("my_tasks");
+                      setDeleteTarget({ id: child.id, name: child.name, leave: false });
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -296,6 +301,37 @@ export default function ProjectPage() {
         <div className="mt-4">
           <IssueList tasks={tasks} onChange={() => void load()} />
         </div>
+      )}
+      {deleteTarget && (
+        <ConfirmPassword
+          title={`Delete project “${deleteTarget.name}”?`}
+          body="Tasks are not deleted. Enter your password to confirm."
+          extra={
+            deleteTarget.leave ? (
+              <label className="mt-3 block text-[12px] font-semibold uppercase tracking-[0.04em] text-muted">
+                Tasks
+                <select
+                  value={taskAction}
+                  onChange={(e) => setTaskAction(e.target.value as "my_tasks" | "inbox")}
+                  className="mt-1 h-9 w-full rounded border border-line px-2 text-sm font-normal normal-case tracking-normal text-ink"
+                >
+                  <option value="my_tasks">Keep in My Tasks</option>
+                  <option value="inbox">Move to Inbox</option>
+                </select>
+              </label>
+            ) : undefined
+          }
+          onConfirm={async (password) => {
+            await api(`/api/projects/${deleteTarget.id}`, {
+              method: "DELETE",
+              body: JSON.stringify({ task_action: deleteTarget.leave ? taskAction : "my_tasks", password }),
+            });
+            await refresh();
+            if (deleteTarget.leave) router.push("/");
+            else await load();
+          }}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

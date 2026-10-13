@@ -1,6 +1,7 @@
 "use client";
 
 import { AppProvider } from "@/lib/AppContext";
+import { FavoriteDock } from "@/components/layout/FavoriteDock";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col bg-bg">
           <TopBar />
           <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+          <FavoriteDock />
         </div>
       </div>
     </AppProvider>

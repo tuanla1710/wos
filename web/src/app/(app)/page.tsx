@@ -71,7 +71,7 @@ export default function HomePage() {
 
       {data.review_prompt && !isReviewDone(data.review_week_start || isoWeekMonday(data.today)) && (
         <Link href="/review" className="mt-4 block rounded-lg border border-line bg-elev px-4 py-3 text-sm font-medium text-accent hover:bg-hover">
-          Review this week →
+          Weekly report →
         </Link>
       )}
 

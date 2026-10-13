@@ -123,9 +123,17 @@ export type StatisticsData = {
 export type ReviewData = {
   week_start: string;
   week_end: string;
+  last_week_start: string;
+  last_week_end: string;
   next_week_start: string;
+  plan_week_start: string;
+  plan_week_end: string;
   completed: number;
   completed_tasks: Task[];
+  last_week_done: Task[];
+  this_week_done: Task[];
+  this_week_doing: Task[];
+  next_week_planned: Task[];
   overdue: Task[];
   blocked: Task[];
   due_next_week: Task[];

@@ -73,10 +73,32 @@ def test_c4_drag_changes_due(user):
 
 def test_r1_review_always_returns_lists(user):
     review = user.get("/api/review").json()
-    for key in ("week_start", "week_end", "completed", "completed_tasks", "overdue", "blocked", "due_next_week", "projects", "week_focus", "next_week_start"):
+    for key in (
+        "week_start",
+        "week_end",
+        "last_week_start",
+        "last_week_end",
+        "plan_week_start",
+        "plan_week_end",
+        "completed",
+        "completed_tasks",
+        "last_week_done",
+        "this_week_done",
+        "this_week_doing",
+        "next_week_planned",
+        "overdue",
+        "blocked",
+        "due_next_week",
+        "projects",
+        "week_focus",
+        "next_week_start",
+    ):
         assert key in review
     assert review["completed"] == 0
     assert review["completed_tasks"] == []
+    assert review["last_week_done"] == []
+    assert review["this_week_doing"] == []
+    assert review["next_week_planned"] == []
 
 
 def test_r2_completed_this_week(user):
@@ -85,6 +107,24 @@ def test_r2_completed_this_week(user):
     review = user.get("/api/review").json()
     assert review["completed"] == 1
     assert review["completed_tasks"][0]["title"] == "Shipped weekly report"
+    assert review["this_week_done"][0]["title"] == "Shipped weekly report"
+
+
+def test_weekly_report_three_weeks(user):
+    today = date.today()
+    review = user.get("/api/review").json()
+    nxt = date.fromisoformat(review["plan_week_start"])
+    shipped = user.post("/api/tasks", json={"title": "Shipped last", "due_date": today.isoformat()}).json()
+    user.patch(f"/api/tasks/{shipped['id']}", json={"status": "done"})
+    doing = user.post("/api/tasks", json={"title": "Writing report", "due_date": today.isoformat()}).json()
+    user.patch(f"/api/tasks/{doing['id']}", json={"status": "in_progress"})
+    later = user.post("/api/tasks", json={"title": "Next week plan", "due_date": nxt.isoformat()}).json()
+    data = user.get("/api/review").json()
+    assert any(t["title"] == "Shipped last" for t in data["this_week_done"])
+    assert any(t["title"] == "Writing report" for t in data["this_week_doing"])
+    assert any(t["title"] == "Next week plan" for t in data["next_week_planned"])
+    future = user.get(f"/api/review?week_start={nxt.isoformat()}").json()
+    assert any(t["title"] == "Shipped last" for t in future["last_week_done"])
 
 
 def test_review_export_pptx(user):

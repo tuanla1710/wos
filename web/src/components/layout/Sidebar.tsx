@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { BrandLockup, ChevronRightGlyph, IconTile } from "@/components/icons/AppIcons";
+import { BrandLockup, ChevronRightGlyph, IconTile, ProjectLevelTile } from "@/components/icons/AppIcons";
 import { api } from "@/lib/api";
 import { APP_VERSION, copyrightLine } from "@/lib/appInfo";
 import { useApp } from "@/lib/AppContext";
@@ -154,7 +154,7 @@ function ProjectLink({
             if (dragged.current) e.preventDefault();
           }}
         >
-          <IconTile name="folder" size={22} active={active} />
+          <ProjectLevelTile depth={depth} active={active} />
           <span className="truncate">{node.name}</span>
           {hasKids && !open && (
             <span className="ml-auto shrink-0 text-[11px] tabular-nums text-sidebar-muted">{node.children.length}</span>
@@ -187,7 +187,7 @@ const nav = [
   { href: "/inbox", label: "Inbox", icon: "inbox" as const },
   { href: "/tasks", label: "My Tasks", icon: "tasks" as const },
   { href: "/calendar", label: "Calendar", icon: "calendar" as const },
-  { href: "/review", label: "Review", icon: "review" as const },
+  { href: "/review", label: "Weekly Review", icon: "review" as const },
   { href: "/statistics", label: "Statistics", icon: "stats" as const },
 ];
 
@@ -292,7 +292,7 @@ export function Sidebar() {
                 {item.href === "/inbox" && inboxCount > 0 && (
                   <span className="min-w-5 rounded bg-overdue px-1.5 text-center text-[11px] font-semibold tabular-nums text-white">{inboxCount}</span>
                 )}
-                {item.href === "/review" && reviewDot && <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-label="Review this week" />}
+                {item.href === "/review" && reviewDot && <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-label="Weekly report this week" />}
               </Link>
             );
           })}

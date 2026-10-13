@@ -13,6 +13,7 @@ TEST_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_URL
 os.environ["SECRET_KEY"] = "test-secret"
 os.environ["UPLOAD_DIR"] = str(ROOT / "api" / "uploads_test")
+os.environ["PUBLIC_REGISTER"] = "true"
 
 import pytest
 from sqlalchemy import create_engine, text

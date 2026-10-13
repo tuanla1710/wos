@@ -33,3 +33,8 @@ export function ancestorIds<T extends { id: string; parent_id?: string | null }>
   }
   return out;
 }
+
+/** 0 = top-level project. Caps at 4 to match the 5-level nest limit. */
+export function projectDepth<T extends { id: string; parent_id?: string | null }>(nodes: T[], id: string) {
+  return Math.min(ancestorIds(nodes, id).size, 4);
+}

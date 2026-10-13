@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BellGlyph, PlusGlyph, SearchGlyph } from "@/components/icons/AppIcons";
+import { BellGlyph, PlusGlyph, SearchGlyph, StarGlyph } from "@/components/icons/AppIcons";
+import { FAVORITE_MAX } from "@/lib/favorites";
+import { useFavorites } from "@/lib/useFavorites";
 import { api } from "@/lib/api";
 import { TopBarAccount } from "@/components/layout/AccountSession";
 import { QuickAdd } from "@/components/task/QuickAdd";
@@ -26,6 +28,7 @@ export function TopBar() {
   const guest = me?.workspace?.role === "guest";
   const projectId = pathname.match(/^\/projects\/([^/]+)/)?.[1];
   const taskId = pathname.match(/^\/tasks\/([^/]+)/)?.[1];
+  const { current, pinned, full, toggleCurrent } = useFavorites();
 
   useEffect(() => {
     if (!q.trim()) {
@@ -117,6 +120,19 @@ export function TopBar() {
           </div>
         )}
       </div>
+      {current && (
+        <button
+          type="button"
+          className="icon-btn"
+          title={pinned ? "Remove from Favorites" : full ? `Favorites are full (${FAVORITE_MAX}).` : "Add to Favorites"}
+          aria-label={pinned ? "Remove from Favorites" : "Add to Favorites"}
+          aria-pressed={pinned}
+          disabled={!pinned && full}
+          onClick={() => void toggleCurrent()}
+        >
+          <StarGlyph size={17} filled={pinned} className={pinned ? "text-accent" : "text-ink"} />
+        </button>
+      )}
       {!guest && (
         <button
           type="button"

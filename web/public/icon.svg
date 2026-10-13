@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="wos-bg" x1="3" y1="1" x2="30" y2="31" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5B86C4"/>
+      <stop offset="0.42" stop-color="#1B365D"/>
+      <stop offset="1" stop-color="#091322"/>
+    </linearGradient>
+    <linearGradient id="wos-sheen" x1="16" y1="2" x2="16" y2="15" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="wos-check" x1="8" y1="23" x2="24" y2="10" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D7E4F4"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="9" fill="url(#wos-bg)"/>
+  <rect x="1.15" y="1.15" width="29.7" height="29.7" rx="7.9" stroke="white" stroke-opacity="0.22"/>
+  <path d="M9 1.4h14c4.2 0 7.6 3.4 7.6 7.6V12H1.4V9C1.4 4.8 4.8 1.4 9 1.4Z" fill="url(#wos-sheen)"/>
+  <path d="M5.4 9.4h21.2" stroke="white" stroke-opacity="0.22" stroke-width="1.15" stroke-linecap="round"/>
+  <circle cx="7.5" cy="9.4" r="1.05" fill="#F4D58D" fill-opacity="0.92"/>
+  <circle cx="10.7" cy="9.4" r="1.05" fill="white" fill-opacity="0.55"/>
+  <circle cx="13.9" cy="9.4" r="1.05" fill="white" fill-opacity="0.28"/>
+  <path d="M9.1 17.55 14.15 22.4 23.35 11.2" stroke="url(#wos-check)" stroke-width="2.55" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M23.15 9.35 24.55 10.75 23.15 12.15 21.75 10.75Z" fill="#F4D58D" fill-opacity="0.95"/>
+</svg>

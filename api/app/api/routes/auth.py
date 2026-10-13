@@ -26,8 +26,15 @@ def _set_session(response: Response, user_id: str) -> None:
     )
 
 
+@router.get("/register")
+def register_status() -> dict:
+    return {"open": settings.public_register}
+
+
 @router.post("/register")
 def register(body: RegisterIn, response: Response, db: Session = Depends(get_db)) -> dict:
+    if not settings.public_register:
+        raise HTTPException(403, "New accounts are created by an admin.")
     user, workspace = provision_user(
         db,
         name=body.name,

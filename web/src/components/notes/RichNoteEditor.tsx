@@ -1,8 +1,12 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { EditorContent, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, useEditor, type Editor, type NodeViewProps } from "@tiptap/react";
+import CodeBlock from "@tiptap/extension-code-block";
 import StarterKit from "@tiptap/starter-kit";
+import { MermaidDiagram } from "@/components/notes/MermaidDiagram";
+import { highlightHtml } from "@/lib/highlight";
+import { isMermaidSource } from "@/lib/mermaid";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -13,19 +17,27 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import { Markdown } from "tiptap-markdown";
-import { markdownFromPaste } from "@/lib/pasteHtml";
+import { markdownFiles, markdownFromPaste } from "@/lib/pasteHtml";
+import { titleFromFilename } from "@/lib/noteFile";
 
 type Props = {
   value: string;
   onChange: (md: string) => void;
   upload: (file: File) => Promise<string>;
   onAttach?: () => void;
+  onMarkdownFile?: (title: string) => void;
   tools?: ReactNode;
   placeholder?: string;
 };
 
 function markdownOf(editor: Editor): string {
   return (editor.storage.markdown as { getMarkdown: () => string }).getMarkdown();
+}
+
+function insertMarkdown(editor: Editor, md: string) {
+  const prepared = prepMarkdown(md);
+  const current = markdownOf(editor).trim();
+  editor.commands.setContent(current ? prepMarkdown(`${current}\n\n${prepared}`) : prepared, false);
 }
 
 /** markdown-it merges `- a` and `- [ ] b` into one task list; a different bullet char keeps them apart. */
@@ -45,7 +57,36 @@ function imageFiles(data: DataTransfer | null): File[] {
   return Array.from(data?.files ?? []).filter((f) => f.type.startsWith("image/"));
 }
 
-export function RichNoteEditor({ value, onChange, upload, onAttach, tools, placeholder = "Write the note…" }: Props) {
+function CodeBlockView({ node }: NodeViewProps) {
+  const lang = String(node.attrs.language ?? "");
+  const mermaid = isMermaidSource(lang, node.textContent);
+  const highlighted = mermaid ? "" : highlightHtml(lang, node.textContent);
+  return (
+    <NodeViewWrapper className="rich-code-block" data-language={lang || "text"}>
+      {mermaid ? <MermaidDiagram source={node.textContent} /> : null}
+      <pre className={mermaid ? "mt-2 overflow-x-auto rounded-lg bg-hover px-4 py-3 font-mono text-[13px] leading-5" : "note-code-pre"}>
+        {mermaid ? (
+          <NodeViewContent as="code" />
+        ) : (
+          <code className="note-code-stack">
+            <span className="note-code-hl" aria-hidden="true" dangerouslySetInnerHTML={{ __html: highlighted }} />
+            <NodeViewContent as="span" className="note-code-edit" />
+          </code>
+        )}
+      </pre>
+    </NodeViewWrapper>
+  );
+}
+
+const NoteCodeBlock = CodeBlock.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(CodeBlockView);
+  },
+});
+
+const MERMAID_SAMPLE = "```mermaid\nflowchart LR\n  A[Start] --> B[Done]\n```";
+
+export function RichNoteEditor({ value, onChange, upload, onAttach, onMarkdownFile, tools, placeholder = "Write the note…" }: Props) {
   const emitted = useRef(value);
   const plain = useRef(false);
   const editorRef = useRef<Editor | null>(null);
@@ -71,7 +112,8 @@ export function RichNoteEditor({ value, onChange, upload, onAttach, tools, place
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, codeBlock: false }),
+      NoteCodeBlock,
       Link.configure({ openOnClick: false, autolink: true }),
       Image,
       TaskList,
@@ -103,13 +145,36 @@ export function RichNoteEditor({ value, onChange, upload, onAttach, tools, place
         plain.current = false;
         if (!md) return false;
         event.preventDefault();
-        ed.commands.insertContent(prepMarkdown(md), { parseOptions: { preserveWhitespace: false } });
+        insertMarkdown(ed, md);
         return true;
       },
       handleDrop: (view, event) => {
         const ed = editorRef.current;
+        if (!ed) return false;
+        const docs = markdownFiles(event.dataTransfer);
+        if (docs.length) {
+          event.preventDefault();
+          void (async () => {
+            const chunks: string[] = [];
+            let name = "";
+            for (const file of docs) {
+              chunks.push((await file.text()).replace(/\r\n/g, "\n"));
+              if (!name) name = titleFromFilename(file.name);
+            }
+            const text = chunks.join("\n\n");
+            if (name) onMarkdownFile?.(name);
+            if (!markdownOf(ed).trim()) {
+              ed.commands.setContent(prepMarkdown(text), false);
+              emitted.current = text;
+              onChange(text);
+            } else {
+              insertMarkdown(ed, text);
+            }
+          })();
+          return true;
+        }
         const files = imageFiles(event.dataTransfer);
-        if (!ed || !files.length) return false;
+        if (!files.length) return false;
         event.preventDefault();
         const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
         void insertImages(ed, files, at?.pos);
@@ -166,6 +231,9 @@ export function RichNoteEditor({ value, onChange, upload, onAttach, tools, place
           <button type="button" className={btn(editor.isActive("codeBlock"))} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
             Code
           </button>
+          <button type="button" className={btn(false)} onClick={() => insertMarkdown(editor, MERMAID_SAMPLE)}>
+            Mermaid
+          </button>
           <button
             type="button"
             className={btn(editor.isActive("link"))}
@@ -194,6 +262,7 @@ export function RichNoteEditor({ value, onChange, upload, onAttach, tools, place
         </div>
       )}
       <EditorContent editor={editor} />
+      <p className="text-[12px] text-muted">Paste Markdown, or drop a .md file. Import loads a file into this note.</p>
     </div>
   );
 }

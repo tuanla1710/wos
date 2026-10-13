@@ -495,7 +495,8 @@ function PeopleBlock() {
     <div className="space-y-3 paper-section">
       <p className="section-label">People</p>
       <p className="text-[12px] text-muted">
-        Platform admin. Change name, email, or password for any account. Disabled accounts cannot sign in.
+        Platform admin. Public sign-up is closed. Only an admin can create accounts. Change name, email, or password
+        for any account. Disabled accounts cannot sign in.
       </p>
       <div className="space-y-1">
         {users.map((row) => (

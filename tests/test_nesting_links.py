@@ -48,7 +48,7 @@ def test_child_project_create_rename_delete(user):
     assert [c["name"] for c in overview["children"]] == ["Beta"]
     renamed = user.patch(f"/api/projects/{child['id']}", json={"name": "Gamma"}).json()
     assert renamed["name"] == "Gamma"
-    user.delete(f"/api/projects/{child['id']}", json={"task_action": "my_tasks"})
+    user.delete(f"/api/projects/{child['id']}", json={"task_action": "my_tasks", "password": "password1"})
     assert user.get(f"/api/projects/{parent['id']}").json()["children"] == []
 
 

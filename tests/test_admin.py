@@ -1,5 +1,6 @@
 from tests.conftest import make_user
 
+from app.core.config import settings
 from app.models.user import User
 
 
@@ -77,6 +78,35 @@ def test_admin_cannot_disable_self_or_last_admin(api, db):
     demote = api.patch(f"/api/admin/users/{me['id']}", json={"is_admin": False})
     assert demote.status_code == 400
     assert demote.json()["detail"] == "You cannot remove your own admin access."
+
+
+def test_public_register_rejected_when_closed(api, db):
+    previous = settings.public_register
+    settings.public_register = True
+    try:
+        api.register("Admin", "gate-admin@example.com")
+        _promote(db, "gate-admin@example.com")
+        settings.public_register = False
+        blocked = api.client.post(
+            "/api/auth/register",
+            json={
+                "name": "Ada",
+                "email": "closed@example.com",
+                "password": "password1",
+                "timezone": "Asia/Seoul",
+                "phone": "+821011112222",
+            },
+        )
+        assert blocked.status_code == 403
+        assert blocked.json()["detail"] == "New accounts are created by an admin."
+        created = api.post(
+            "/api/admin/users",
+            json={"name": "Cara", "email": "cara-closed@example.com", "password": "cara12345", "phone": "+821099900099"},
+        )
+        assert created.status_code == 200
+        assert created.json()["email"] == "cara-closed@example.com"
+    finally:
+        settings.public_register = previous
 
 
 def test_me_exposes_admin_flag(api, db):

@@ -81,7 +81,7 @@ export default function NotesPage() {
               }
             }} />
             <button type="button" className="btn-ghost" onClick={() => file.current?.click()}>
-              Import
+              Import .md
             </button>
           </div>
         )}

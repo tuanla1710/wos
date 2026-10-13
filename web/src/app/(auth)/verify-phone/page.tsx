@@ -51,7 +51,7 @@ export default function VerifyPhonePage() {
     <main className="relative z-10 flex min-h-screen items-center justify-center px-4">
       <div className="w-[360px] rounded-lg border border-line bg-elev p-8 shadow-modal">
         <div className="mb-6">
-          <BrandLockup size={28} large subtitle="Verify your phone" />
+          <BrandLockup size={40} large subtitle="Verify your phone" />
         </div>
         <p className="mb-4 text-[12px] text-muted">A verified phone number is required before you can use Work OS.</p>
         <form

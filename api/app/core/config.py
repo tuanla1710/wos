@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     admin_email: str = "admin@workos.dev"
     admin_password: str = "Admin1234"
     admin_name: str = "Admin"
+    public_register: bool = False
     phone_default_country: str = "82"
     sms_provider: str = "console"
     twilio_account_sid: str = ""

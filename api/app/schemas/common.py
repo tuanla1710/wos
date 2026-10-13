@@ -134,6 +134,7 @@ class LinkPatch(BaseModel):
 
 class ProjectDeleteIn(BaseModel):
     task_action: str = "my_tasks"
+    password: str = Field(min_length=1, max_length=200)
 
 
 class FocusPut(BaseModel):

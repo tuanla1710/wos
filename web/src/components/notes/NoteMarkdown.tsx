@@ -1,6 +1,9 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
+import { HighlightedCode } from "@/components/notes/HighlightedCode";
+import { MermaidDiagram } from "@/components/notes/MermaidDiagram";
+import { isMermaidSource } from "@/lib/mermaid";
 import { parseMarkdownBlocks, type BeatVariant, type CalloutKind, type MdBlock } from "@/lib/noteMd";
 
 export function NoteMarkdown({ src, teach, variant = "default" }: { src: string; teach?: boolean; variant?: BeatVariant }) {
@@ -192,6 +195,19 @@ function MistakeCard({ text }: { text: string }) {
 }
 
 function CodeBlock({ lang, code, teach, onCopy }: { lang: string; code: string; teach?: boolean; onCopy: () => void }) {
+  if (isMermaidSource(lang, code)) {
+    return (
+      <div className="space-y-2">
+        <div className="flex h-7 items-center px-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Mermaid</span>
+          <button type="button" className="ml-auto text-[12px] text-muted hover:text-ink" onClick={onCopy}>
+            Copy
+          </button>
+        </div>
+        <MermaidDiagram source={code} />
+      </div>
+    );
+  }
   if (teach) {
     return (
       <div className="overflow-hidden rounded-xl bg-[#1C1917] shadow-popover">
@@ -204,8 +220,8 @@ function CodeBlock({ lang, code, teach, onCopy }: { lang: string; code: string; 
             Copy
           </button>
         </div>
-        <pre className="overflow-x-auto px-4 py-3 font-mono text-[16px] leading-7 text-[#F5F5F4]">
-          <code>{code}</code>
+        <pre className="note-code-dark overflow-x-auto px-4 py-3 font-mono text-[16px] leading-7">
+          <HighlightedCode lang={lang} code={code} />
         </pre>
       </div>
     );
@@ -218,8 +234,8 @@ function CodeBlock({ lang, code, teach, onCopy }: { lang: string; code: string; 
           Copy
         </button>
       </div>
-      <pre className="overflow-x-auto px-3 pb-3 font-mono text-[13px] leading-5 text-ink">
-        <code>{code}</code>
+      <pre className="overflow-x-auto px-3 pb-3 font-mono text-[13px] leading-5">
+        <HighlightedCode lang={lang} code={code} />
       </pre>
     </div>
   );
