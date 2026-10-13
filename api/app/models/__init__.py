@@ -1,4 +1,4 @@
-from app.models.focus import TaskFocus, TaskWeekFocus
+from app.models.focus import ProjectWeekTarget, TaskFocus, TaskWeekFocus, TaskWeekTarget
 from app.models.phase2 import (
     ActivityLog,
     ApiToken,
@@ -37,6 +37,8 @@ __all__ = [
     "TaskChecklist",
     "TaskFocus",
     "TaskWeekFocus",
+    "TaskWeekTarget",
+    "ProjectWeekTarget",
     "WorkspaceInvite",
     "InviteProject",
     "ProjectMember",

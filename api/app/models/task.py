@@ -26,6 +26,7 @@ class Task(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     status: Mapped[str] = mapped_column(Text, nullable=False, default="todo")
+    progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     priority: Mapped[str] = mapped_column(Text, nullable=False, default="medium")
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)

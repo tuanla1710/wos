@@ -21,6 +21,43 @@ def _touch(task: Task) -> None:
     task.updated_at = datetime.now(timezone.utc)
 
 
+def _direct_children(db: Session, task_id: UUID) -> list[Task]:
+    return db.query(Task).filter(Task.parent_id == task_id, Task.archived_at.is_(None)).all()
+
+
+def _rollup_ancestors(db: Session, task: Task) -> None:
+    """A parent task’s % is the average of its subtasks, walked up to the root."""
+    current = db.get(Task, task.parent_id) if task.parent_id else None
+    seen: set[UUID] = set()
+    while current and current.id not in seen:
+        seen.add(current.id)
+        children = _direct_children(db, current.id)
+        if children:
+            current.progress = int(round(sum(child.progress for child in children) / len(children)))
+            if current.progress >= 100 and current.status != "done":
+                _apply_status(current, "done")
+            elif current.progress < 100 and current.status == "done":
+                _apply_status(current, "in_progress")
+        if not current.parent_id:
+            break
+        current = db.get(Task, current.parent_id)
+
+
+def set_task_progress(db: Session, task: Task, value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0 or value > 100:
+        raise HTTPException(400, "Progress is 0–100.")
+    if _direct_children(db, task.id):
+        raise HTTPException(400, "This % is the average of its subtasks.")
+    task.progress = value
+    if value == 100:
+        if task.status != "done":
+            _apply_status(task, "done")
+        _clear_focus(db, task)
+    elif task.status == "done":
+        _apply_status(task, "in_progress")
+    _rollup_ancestors(db, task)
+
+
 def _apply_status(task: Task, status: str) -> None:
     if status not in {"todo", "in_progress", "blocked", "done"}:
         raise HTTPException(400, "Invalid status")
@@ -193,9 +230,16 @@ def patch_task(db: Session, workspace: Workspace, task: Task, data: dict) -> Tas
             from app.services.activity import log_activity
 
             log_activity(db, workspace.id, actor_id or task.assignee_id, "assignee", f"Reassigned “{task.title}”", task.id, task.project_id)
-    if data.get("status"):
+    if data.get("progress") is not None:
+        set_task_progress(db, task, int(data["progress"]))
+    if data.get("status") and not _direct_children(db, task.id):
         prev = task.status
         _apply_status(task, data["status"])
+        if task.status == "done":
+            task.progress = 100
+        elif task.progress == 100:
+            task.progress = 0 if task.status == "todo" else 99
+        _rollup_ancestors(db, task)
         if data["status"] == "done":
             _clear_focus(db, task)
             from app.services.activity import log_activity

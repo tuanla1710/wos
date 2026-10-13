@@ -78,6 +78,41 @@ def get_project(db: Session, workspace: Workspace, project_id: UUID) -> Project:
     return project
 
 
+def progress_by_project(db: Session, workspace: Workspace) -> dict[UUID, int]:
+    """Each project’s % is the average of its root tasks and child projects that have work."""
+    tasks = (
+        db.query(Task)
+        .filter(Task.workspace_id == workspace.id, Task.archived_at.is_(None), Task.parent_id.is_(None), Task.project_id.isnot(None))
+        .all()
+    )
+    roots: dict[UUID, list[int]] = {}
+    for task in tasks:
+        roots.setdefault(task.project_id, []).append(int(task.progress or 0))
+    children: dict[UUID, list[UUID]] = {}
+    projects = db.query(Project).filter(Project.workspace_id == workspace.id, Project.archived_at.is_(None)).all()
+    for project in projects:
+        if project.parent_id:
+            children.setdefault(project.parent_id, []).append(project.id)
+    memo: dict[UUID, tuple[int, bool]] = {}
+
+    def score(project_id: UUID) -> tuple[int, bool]:
+        if project_id in memo:
+            return memo[project_id]
+        parts = list(roots.get(project_id, []))
+        for child_id in children.get(project_id, []):
+            child_score, has_work = score(child_id)
+            if has_work:
+                parts.append(child_score)
+        if not parts:
+            memo[project_id] = (0, False)
+            return 0, False
+        value = int(round(sum(parts) / len(parts)))
+        memo[project_id] = (value, True)
+        return value, True
+
+    return {project.id: score(project.id)[0] for project in projects}
+
+
 def overview(db: Session, workspace: Workspace, user: User, project: Project) -> dict:
     today = user_today(user.timezone)
     q = db.query(Task).filter(Task.project_id == project.id, Task.archived_at.is_(None))
@@ -100,9 +135,10 @@ def overview(db: Session, workspace: Workspace, user: User, project: Project) ->
     from app.services.links import list_links
 
     holidays = holiday_dates(db, workspace.id)
+    scores = progress_by_project(db, workspace)
     return {
         **project_out(project, holidays=holidays),
-        "progress": round((completed / total) * 100) if total else 0,
+        "progress": scores.get(project.id, 0),
         "counts": {
             "tasks": total,
             "completed": completed,
@@ -111,7 +147,7 @@ def overview(db: Session, workspace: Workspace, user: User, project: Project) ->
             "overdue": overdue,
         },
         "upcoming": [task_out(t, holidays=holidays) for t in upcoming],
-        "children": [project_out(c, holidays=holidays) for c in children],
+        "children": [{**project_out(c, holidays=holidays), "progress": scores.get(c.id, 0)} for c in children],
         "links": list_links(db, project_id=project.id),
     }
 
@@ -142,6 +178,11 @@ def patch_project(db: Session, workspace: Workspace, project: Project, data: dic
     elif data.get("due_date") is not None:
         project.due_date = data["due_date"]
     require_range(project.start_date, project.due_date)
+    if data.get("status") is not None:
+        status = data["status"]
+        if status not in {"todo", "in_progress", "blocked", "done"}:
+            raise HTTPException(400, "Invalid status")
+        project.status = status
     if data.get("clear_parent"):
         project.parent_id = None
     elif data.get("parent_id") is not None:

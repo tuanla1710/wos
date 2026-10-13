@@ -50,3 +50,43 @@ class TaskWeekFocus(Base):
     week_start: Mapped[date] = mapped_column(Date, nullable=False)
     position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TaskWeekTarget(Base):
+    """One row per task per week. target_progress is the plan; actual_progress is what got done."""
+
+    __tablename__ = "task_week_targets"
+    __table_args__ = (UniqueConstraint("workspace_id", "task_id", "week_start", name="uq_task_week_target"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    target_progress: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    actual_progress: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProjectWeekTarget(Base):
+    """One row per project per week. target_progress is the plan; actual_progress is what got done."""
+
+    __tablename__ = "project_week_targets"
+    __table_args__ = (UniqueConstraint("workspace_id", "project_id", "week_start", name="uq_project_week_target"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    target_progress: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    actual_progress: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

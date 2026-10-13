@@ -9,6 +9,8 @@ import type { Attachment, Checklist, Comment, Task, WorkNote } from "@/lib/types
 import { useApp } from "@/lib/AppContext";
 import { allowDrop, currentDrag, endDrag, parseDragData, setDragData } from "@/lib/dnd";
 import { canMoveUnder } from "@/lib/nesting";
+import { PlanSlider, formatSpan } from "@/components/review/WeekBoard";
+import { weekNumberLabel } from "@/lib/review";
 import { LinksEditor } from "@/components/ui/LinksEditor";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
 
@@ -142,8 +144,76 @@ export default function TaskDetailPage() {
         <>
           <div className="mt-6 grid gap-3 text-sm">
             <label className="flex items-center gap-3">
+              <span className="w-24 text-muted">Progress</span>
+              {(task.subtasks ?? []).length > 0 ? (
+                <span className="text-sm tabular-nums">{task.progress ?? 0}% · average of subtasks</span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <input
+                    key={`${task.id}-${task.progress}`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    defaultValue={task.progress ?? 0}
+                    disabled={guest}
+                    onBlur={(e) => {
+                      const next = Number(e.target.value);
+                      if (!Number.isInteger(next) || next < 0 || next > 100 || next === task.progress) return;
+                      void patch({ progress: next });
+                    }}
+                    className="h-9 w-20 rounded border border-line px-2 tabular-nums"
+                  />
+                  <span className="text-muted">%</span>
+                </span>
+              )}
+            </label>
+            {task.week_plan && (
+              <div className="rounded-lg border border-line p-3">
+                <p className="text-[12px] font-semibold uppercase text-muted">Week plan</p>
+                <div className="mt-2 grid gap-2">
+                  {(
+                    [
+                      ["this", "plan"],
+                      ["next", "plan"],
+                    ] as const
+                  ).map(([key, kind]) => {
+                    const slot = task.week_plan?.[key];
+                    if (!slot) return null;
+                    const label = `${weekNumberLabel(slot.start)} ${kind}`;
+                    return (
+                      <label key={key} className="flex items-center gap-3">
+                        <span className="w-36 text-muted">
+                          {label}
+                          <span className="mt-0.5 block text-[11px] text-faint">{formatSpan(slot.start, slot.end)}</span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <PlanSlider
+                            key={`${key}-${slot.value ?? "x"}-${slot.min}-${slot.max}`}
+                            value={slot.value}
+                            min={slot.min}
+                            max={slot.max}
+                            disabled={guest || task.week_plan?.editable === false}
+                            title={key === "next" && slot.min > 0 ? `At least ${slot.min}%, this week’s plan` : label}
+                            onSave={(next) => {
+                              void api("/api/review/week-target", {
+                                method: "PUT",
+                                body: JSON.stringify({ task_id: id, week_start: slot.start, target_progress: next }),
+                              })
+                                .then(() => load())
+                                .catch((err) => setError(err instanceof Error ? err.message : "Couldn’t save the plan."));
+                            }}
+                          />
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {task.week_plan.editable === false && <p className="mt-2 text-[12px] text-faint">Comes from the average of subtasks.</p>}
+              </div>
+            )}
+            <label className="flex items-center gap-3">
               <span className="w-24 text-muted">Status</span>
-              <select value={task.status} onChange={(e) => void patch({ status: e.target.value })} className="h-9 rounded border border-line px-2">
+              <select value={task.status} disabled={guest || (task.subtasks ?? []).length > 0} onChange={(e) => void patch({ status: e.target.value })} className="h-9 rounded border border-line px-2">
                 <option value="todo">Todo</option>
                 <option value="in_progress">In Progress</option>
                 <option value="blocked">Blocked</option>
@@ -281,6 +351,7 @@ export default function TaskDetailPage() {
                 <button type="button" className="flex-1 truncate text-left" onClick={() => router.push(`/tasks/${child.id}`)}>
                   {child.title}
                 </button>
+                <span className="tabular-nums text-muted">{child.progress ?? 0}%</span>
                 <span className="text-muted">{child.status.replace("_", " ")}</span>
                 {!guest && (
                   <button type="button" className="text-muted" onClick={() => void api(`/api/tasks/${child.id}`, { method: "PATCH", body: JSON.stringify({ clear_parent: true }) }).then(() => load())}>

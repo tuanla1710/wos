@@ -69,6 +69,7 @@ class TaskPatch(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     status: str | None = None
+    progress: int | None = Field(default=None, ge=0, le=100)
     priority: str | None = None
     start_date: Date | None = None
     due_date: Date | None = None
@@ -102,6 +103,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
+    status: str | None = None
     parent_id: UUID | None = None
     start_date: Date | None = None
     due_date: Date | None = None
@@ -154,6 +156,20 @@ class ReviewTaskId(BaseModel):
 class WeekFocusPut(BaseModel):
     week_start: Date
     task_ids: list[UUID] = Field(default_factory=list)
+
+
+class WeekTargetPut(BaseModel):
+    task_id: UUID
+    week_start: Date
+    target_progress: int | None = Field(default=None, ge=0, le=100)
+    actual_progress: int | None = Field(default=None, ge=0, le=100)
+
+
+class ProjectWeekTargetPut(BaseModel):
+    project_id: UUID
+    week_start: Date
+    target_progress: int | None = Field(default=None, ge=0, le=100)
+    actual_progress: int | None = Field(default=None, ge=0, le=100)
 
 
 class InviteIn(BaseModel):

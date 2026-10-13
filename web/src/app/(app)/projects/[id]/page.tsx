@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { NoteList } from "@/components/notes/NoteList";
 import { api } from "@/lib/api";
-import type { EntityLink, Project, Task, WorkNote } from "@/lib/types";
+import type { EntityLink, Project, Task, WeekPlan, WorkNote } from "@/lib/types";
 import { IssueList } from "@/components/task/IssueList";
 import { TaskRow } from "@/components/task/TaskRow";
 import { useApp } from "@/lib/AppContext";
@@ -14,11 +14,15 @@ import { ProjectLevelTile } from "@/components/icons/AppIcons";
 import { ConfirmPassword } from "@/components/ui/ConfirmPassword";
 import { LinksEditor } from "@/components/ui/LinksEditor";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
+import { PlanSlider, formatSpan } from "@/components/review/WeekBoard";
+import { weekNumberLabel } from "@/lib/review";
+import type { TaskStatus } from "@/lib/types";
 
 type Overview = {
   id: string;
   name: string;
   key?: string | null;
+  status?: TaskStatus;
   parent_id?: string | null;
   start_date?: string | null;
   due_date?: string | null;
@@ -28,6 +32,7 @@ type Overview = {
   upcoming: Task[];
   children?: Project[];
   links?: EntityLink[];
+  week_plan?: WeekPlan;
 };
 
 export default function ProjectPage() {
@@ -68,6 +73,17 @@ export default function ProjectPage() {
     void load();
   }, [load]);
   useReloadOnChange(load);
+
+  async function patch(body: Record<string, unknown>) {
+    setError("");
+    try {
+      await api(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+      await refresh();
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn’t save.");
+    }
+  }
 
   async function nestProject(projectId: string, parentId: string | null) {
     setError("");
@@ -144,11 +160,93 @@ export default function ProjectPage() {
 
       {tab === "overview" ? (
         <div className="mt-6 max-w-[880px]">
-          <p className="text-sm text-muted">
-            {data.progress}% · {data.counts.completed} / {data.counts.tasks} tasks done
-          </p>
-          <div className="mt-2 h-2 rounded bg-line">
-            <div className="h-2 rounded bg-accent/70" style={{ width: `${data.progress}%` }} />
+          <div className="grid gap-3 text-sm">
+            <label className="flex items-center gap-3">
+              <span className="w-24 text-muted">Progress</span>
+              <span className="tabular-nums">{data.progress}% · average of tasks and child projects</span>
+            </label>
+            {data.week_plan && (
+              <div className="rounded-lg border border-line p-3">
+                <p className="text-[12px] font-semibold uppercase text-muted">Week plan</p>
+                <div className="mt-2 grid gap-2">
+                  {(
+                    [
+                      ["this", "plan"],
+                      ["next", "plan"],
+                    ] as const
+                  ).map(([key, kind]) => {
+                    const slot = data.week_plan?.[key];
+                    if (!slot) return null;
+                    const label = `${weekNumberLabel(slot.start)} ${kind}`;
+                    return (
+                      <label key={key} className="flex items-center gap-3">
+                        <span className="w-36 text-muted">
+                          {label}
+                          <span className="mt-0.5 block text-[11px] text-faint">{formatSpan(slot.start, slot.end)}</span>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <PlanSlider
+                            key={`${key}-${slot.value ?? "x"}-${slot.min}-${slot.max}`}
+                            value={slot.value}
+                            min={slot.min ?? 0}
+                            max={slot.max ?? 100}
+                            disabled={guest || data.week_plan?.editable === false}
+                            title={key === "next" && (slot.min ?? 0) > 0 ? `At least ${slot.min}%, this week’s plan` : label}
+                            onSave={(next) => {
+                              void api("/api/review/project-week-target", {
+                                method: "PUT",
+                                body: JSON.stringify({ project_id: id, week_start: slot.start, target_progress: next }),
+                              })
+                                .then(() => load())
+                                .catch((err) => setError(err instanceof Error ? err.message : "Couldn’t save the plan."));
+                            }}
+                          />
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <label className="flex items-center gap-3">
+              <span className="w-24 text-muted">Status</span>
+              <select
+                value={data.status ?? "todo"}
+                disabled={guest}
+                onChange={(e) => void patch({ status: e.target.value })}
+                className="h-9 rounded border border-line px-2"
+              >
+                <option value="todo">Todo</option>
+                <option value="in_progress">In Progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="done">Done</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-3">
+              <span className="w-24 text-muted">Start</span>
+              <input
+                type="date"
+                value={data.start_date ?? ""}
+                disabled={guest}
+                onChange={(e) => void patch(e.target.value ? { start_date: e.target.value } : { clear_start: true })}
+                className="h-9 rounded border border-line px-2"
+              />
+            </label>
+            <label className="flex items-center gap-3">
+              <span className="w-24 text-muted">Due</span>
+              <input
+                type="date"
+                value={data.due_date ?? ""}
+                disabled={guest}
+                onChange={(e) => void patch(e.target.value ? { due_date: e.target.value } : { clear_due: true })}
+                className="h-9 rounded border border-line px-2"
+              />
+            </label>
+            <p className="text-[12px] text-muted">
+              {data.work_days == null
+                ? "Set start and due to see workdays (weekends and holidays off)."
+                : `${data.work_days} workday${data.work_days === 1 ? "" : "s"} · weekends and holidays off`}
+            </p>
           </div>
           <div className="mt-6 grid grid-cols-5 gap-3 text-sm">
             {(["tasks", "completed", "in_progress", "blocked", "overdue"] as const).map((k) => (
@@ -218,6 +316,7 @@ export default function ProjectPage() {
                 <button type="button" className="flex-1 truncate text-left" onClick={() => router.push(`/projects/${child.id}`)}>
                   {child.name}
                 </button>
+                <span className="tabular-nums text-muted">{child.progress ?? 0}%</span>
                 {!guest && (
                   <button type="button" className="text-muted" onClick={() => void nestProject(child.id, null)}>
                     Unlink

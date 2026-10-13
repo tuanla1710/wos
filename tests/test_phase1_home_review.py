@@ -1,4 +1,5 @@
 import io
+import re
 import zipfile
 from datetime import date, timedelta
 
@@ -127,15 +128,87 @@ def test_weekly_report_three_weeks(user):
     assert any(t["title"] == "Shipped last" for t in future["last_week_done"])
 
 
+def test_review_board_keeps_tasks_when_project_due_is_later(user):
+    review = user.get("/api/review").json()
+    later = (date.fromisoformat(review["week_end"]) + timedelta(days=14)).isoformat()
+    project = user.post("/api/projects", json={"name": "October project", "due_date": later, "start_date": review["week_start"]}).json()
+    user.post(
+        "/api/tasks",
+        json={"title": "Due this week", "project_id": project["id"], "due_date": review["week_end"], "start_date": review["week_start"]},
+    )
+    board = user.get("/api/review").json()["board"]["this"]
+    names = [p["name"] for p in board["projects"]]
+    assert "October project" in names
+    card = next(p for p in board["projects"] if p["name"] == "October project")
+    assert any(t["title"] == "Due this week" for t in card["tasks"])
+
+
+def test_project_status_and_week_plan(user):
+    project = user.post("/api/projects", json={"name": "Editable"}).json()
+    patched = user.patch(f"/api/projects/{project['id']}", json={"status": "in_progress"})
+    assert patched.status_code == 200
+    assert patched.json()["status"] == "in_progress"
+    detail = user.get(f"/api/projects/{project['id']}").json()
+    assert detail["status"] == "in_progress"
+    assert detail["week_plan"]["editable"] is True
+    this = detail["week_plan"]["this"]["start"]
+    nxt = detail["week_plan"]["next"]["start"]
+    saved = user.put(
+        "/api/review/project-week-target",
+        json={"project_id": project["id"], "week_start": this, "target_progress": 40},
+    )
+    assert saved.status_code == 200
+    user.put(
+        "/api/review/project-week-target",
+        json={"project_id": project["id"], "week_start": nxt, "target_progress": 55},
+    )
+    again = user.get(f"/api/projects/{project['id']}").json()
+    assert again["week_plan"]["this"]["value"] == 40
+    assert again["week_plan"]["next"]["value"] == 55
+    assert again["week_plan"]["next"]["min"] == 40
+    low = user.put(
+        "/api/review/project-week-target",
+        json={"project_id": project["id"], "week_start": nxt, "target_progress": 10},
+    )
+    assert low.status_code == 400
+
+
 def test_review_export_pptx(user):
+    review = user.get("/api/review").json()
+    due = review["week_end"]
+    month, day = due[5:7], due[8:10]
+    project = user.post("/api/projects", json={"name": "Report project", "due_date": due}).json()
+    child = user.post("/api/projects", json={"name": "하위 과제", "parent_id": project["id"], "due_date": due}).json()
+    task = user.post(
+        "/api/tasks",
+        json={"title": "Report line", "project_id": project["id"], "due_date": due, "start_date": review["week_start"]},
+    ).json()
+    user.post(
+        "/api/tasks",
+        json={"title": "Child line", "project_id": child["id"], "due_date": due, "start_date": review["week_start"]},
+    )
+    user.put("/api/review/week-target", json={"task_id": task["id"], "week_start": review["week_start"], "target_progress": 70})
+    user.put("/api/review/week-target", json={"task_id": task["id"], "week_start": review["plan_week_start"], "target_progress": 80})
     res = user.get("/api/review/export")
     assert res.status_code == 200
     assert "officedocument.presentationml.presentation" in res.headers["content-type"]
     assert res.content[:2] == b"PK"
     z = zipfile.ZipFile(io.BytesIO(res.content))
     xml = z.read("ppt/slides/slide1.xml").decode("utf-8")
+    week_no = date.fromisoformat(review["week_start"]).isocalendar().week
+    assert f"ORAN 템팀 주간보고 W{week_no}" in xml
     assert "실적" in xml
     assert "계획" in xml
+    assert "일시" in xml
+    assert "week " not in xml
+    assert "Last Week" not in xml
+    assert "This Week" not in xml
+    assert "Next Week" not in xml
+    texts = re.findall(r"<a:t>([^<]*)</a:t>", xml)
+    assert "1. report project" in texts, texts
+    assert "가. 하위 과제" in xml
+    assert xml.count(f"70%, {month}/{day}") == 1
+    assert xml.count(f"80%, {month}/{day}") == 1
     assert "진행 업무 및 이슈" in xml
     assert "대책" in xml
     assert z.read("ppt/presentation.xml").decode("utf-8").count("<p:sldId ") == 1

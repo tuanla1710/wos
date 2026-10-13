@@ -6,6 +6,7 @@ export type Task = {
   title: string;
   description?: string;
   status: TaskStatus;
+  progress: number;
   priority: TaskPriority;
   start_date?: string | null;
   due_date: string | null;
@@ -21,6 +22,7 @@ export type Task = {
   links?: EntityLink[];
   issue_key?: string | null;
   task_number?: number | null;
+  week_plan?: WeekPlan;
 };
 
 export type Checklist = { id: string; title: string; is_done: boolean; position: number };
@@ -35,6 +37,8 @@ export type Project = {
   start_date?: string | null;
   due_date?: string | null;
   work_days?: number | null;
+  progress?: number;
+  status?: TaskStatus;
   children?: Project[];
   links?: EntityLink[];
 };
@@ -120,7 +124,49 @@ export type StatisticsData = {
   };
 };
 
+export type ReviewBoardTask = Omit<Task, "subtasks"> & {
+  plan: number | null;
+  actual: number | null;
+  min_value: number;
+  max_value: number;
+  editable: boolean;
+  overdue: boolean;
+  subtasks: ReviewBoardTask[];
+};
+
+export type ReviewBoardProject = {
+  id: string | null;
+  name: string;
+  key?: string | null;
+  status?: TaskStatus | null;
+  progress: number | null;
+  project_progress: number;
+  done: number;
+  total: number;
+  tasks: ReviewBoardTask[];
+  children: ReviewBoardProject[];
+};
+
+export type ReviewBoardWeek = {
+  start: string;
+  end: string;
+  progress: number | null;
+  done: number;
+  total: number;
+  projects: ReviewBoardProject[];
+};
+
+export type WeekPlanSlot = { start: string; end: string; value: number | null; min: number; max: number };
+
+export type WeekPlan = {
+  last: WeekPlanSlot;
+  this: WeekPlanSlot;
+  next: WeekPlanSlot;
+  editable?: boolean;
+};
+
 export type ReviewData = {
+  board: { last: ReviewBoardWeek; this: ReviewBoardWeek; next: ReviewBoardWeek };
   week_start: string;
   week_end: string;
   last_week_start: string;

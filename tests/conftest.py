@@ -72,6 +72,7 @@ TABLES = [
     "workspace_invites",
     "task_week_focus",
     "task_focus",
+    "project_week_targets",
     "task_checklists",
     "tasks",
     "projects",

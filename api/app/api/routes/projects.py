@@ -56,7 +56,11 @@ def get_project_route(
     project = get_project(db, workspace, project_id)
     if not can_see_project(db, member, project):
         raise HTTPException(404, "Not found.")
-    return overview(db, workspace, user, project)
+    from app.services.review import project_week_plan
+
+    data = overview(db, workspace, user, project)
+    data["week_plan"] = project_week_plan(db, workspace, user, project)
+    return data
 
 
 @router.patch("/{project_id}")

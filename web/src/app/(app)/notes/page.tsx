@@ -59,9 +59,9 @@ export default function NotesPage() {
         {!guest && (
           <div className="flex gap-2">
             <input ref={file} type="file" accept={NOTE_IMPORT_ACCEPT} multiple className="hidden" onChange={async (e) => {
-              const list = e.target.files;
+              const list = Array.from(e.target.files ?? []);
               e.target.value = "";
-              if (!list?.length) return;
+              if (!list.length) return;
               setError("");
               try {
                 let last = "";

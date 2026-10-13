@@ -59,6 +59,10 @@ export function formatWeekOfYear(isoDate: string) {
   return `Week ${week}, ${year}`;
 }
 
+export function weekNumberLabel(isoDate: string) {
+  return `Week ${isoWeekParts(isoDate).week}`;
+}
+
 export function formatReviewRange(start: string, end: string) {
   const a = new Date(`${start}T12:00:00`);
   const b = new Date(`${end}T12:00:00`);

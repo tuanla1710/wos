@@ -65,6 +65,7 @@ def project_out(project: Project, holidays: set[date] | None = None) -> dict:
         "due_date": due.isoformat() if due else None,
         "work_days": work_days(start, due, holidays),
         "key": getattr(project, "key", None),
+        "status": getattr(project, "status", None) or "todo",
     }
 
 
@@ -89,6 +90,7 @@ def task_out(
         "title": task.title,
         "description": task.description,
         "status": task.status,
+        "progress": int(getattr(task, "progress", 0) or 0),
         "priority": task.priority,
         "start_date": start.isoformat() if start else None,
         "due_date": task.due_date.isoformat() if task.due_date else None,

@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, downloadReviewReport } from "@/lib/api";
 import type { ReviewData, Task } from "@/lib/types";
 import { useApp } from "@/lib/AppContext";
 import { useReloadOnChange } from "@/lib/useReloadOnChange";
-import { addDays, formatDue, formatReviewRange, isoWeekMonday, markReviewDone, todayIso } from "@/lib/review";
+import { addDays, formatDue, formatWeekOfYear, isoWeekMonday, markReviewDone, todayIso } from "@/lib/review";
+import { BoardLegend, WeekColumn, WeekTabs, formatSpan, type WeekKey } from "@/components/review/WeekBoard";
+import { ChevronLeftGlyph, ChevronRightGlyph } from "@/components/icons/AppIcons";
 
 export default function ReviewPage() {
   const { me, refresh } = useApp();
   const [data, setData] = useState<ReviewData | null>(null);
+  const [weekStart, setWeekStart] = useState<string | null>(null);
+  const [activeWeek, setActiveWeek] = useState<WeekKey>("this");
   const [error, setError] = useState("");
   const [focusIds, setFocusIds] = useState<string[]>([]);
   const [picker, setPicker] = useState(false);
@@ -23,7 +27,7 @@ export default function ReviewPage() {
 
   const load = useCallback(async () => {
     try {
-      const r = await api<ReviewData>("/api/review");
+      const r = await api<ReviewData>(weekStart ? `/api/review?week_start=${weekStart}` : "/api/review");
       setData(r);
       setFocusIds(r.week_focus.map((t) => t.id));
       setError("");
@@ -36,7 +40,7 @@ export default function ReviewPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t load review.");
     }
-  }, [me?.ai_enabled]);
+  }, [me?.ai_enabled, weekStart]);
 
   useEffect(() => {
     void load();
@@ -124,7 +128,7 @@ export default function ReviewPage() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-[880px] p-8">
+      <div className="mx-auto max-w-[1440px] p-8">
         <h1 className="text-xl font-semibold">Weekly Review</h1>
         <p className="mt-3 text-sm text-muted">{error || "Loading weekly report…"}</p>
         {error && (
@@ -136,60 +140,83 @@ export default function ReviewPage() {
     );
   }
 
+  const weekKeys: WeekKey[] = ["this", "next"];
+  const isCurrentWeek = data.week_start === isoWeekMonday(today);
+
   return (
-    <div className="mx-auto max-w-[880px] p-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="mx-auto max-w-[1440px] p-6 md:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="section-label">Weekly Review</p>
-          <h1 className="mt-1 text-xl font-semibold">{formatReviewRange(data.week_start, data.week_end)}</h1>
-          <p className="mt-1 text-sm text-muted">Last week’s done work, this week’s progress, and next week’s plan.</p>
+          <h1 className="text-[22px] font-semibold leading-7">Weekly Review</h1>
+          <p className="mt-0.5 text-sm text-muted">Project &amp; Task Progress · {formatWeekOfYear(data.week_start)}</p>
         </div>
-        <button type="button" className="btn-ghost" disabled={exporting} onClick={() => void exportDoc()}>
-          {exporting ? "Exporting…" : "Export report"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex h-9 items-center rounded-lg border border-line bg-white">
+            <button type="button" className="flex h-full w-8 items-center justify-center text-muted hover:text-ink" title="Previous week" onClick={() => setWeekStart(addDays(data.week_start, -7))}>
+              <ChevronLeftGlyph size={14} />
+            </button>
+            <span className="px-1 text-[13px] font-medium tabular-nums">{formatSpan(data.week_start, data.week_end)}</span>
+            <button type="button" className="flex h-full w-8 items-center justify-center text-muted hover:text-ink" title="Next week" onClick={() => setWeekStart(addDays(data.week_start, 7))}>
+              <ChevronRightGlyph size={14} />
+            </button>
+          </div>
+          {isCurrentWeek ? (
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#ECFDF3] px-3 text-[12px] font-medium text-[#067647]">
+              <span className="block h-1.5 w-1.5 rounded-full bg-[#067647]" />
+              Live
+            </span>
+          ) : (
+            <button type="button" className="btn-ghost" onClick={() => setWeekStart(null)}>
+              Today
+            </button>
+          )}
+          <button type="button" className="btn-ghost" disabled={exporting} onClick={() => void exportDoc()}>
+            {exporting ? "Exporting…" : "Export report"}
+          </button>
+          <button type="button" className="btn-primary" disabled={saving} onClick={() => void finish()}>
+            {saving ? "Saving…" : "Done reviewing"}
+          </button>
+        </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-overdue">{error}</p>}
       {done && <p className="mt-3 text-sm text-accent">Report saved. Home will hide the Friday banner until next week.</p>}
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Last week done" value={data.last_week_done.length} />
-        <Stat label="This week done" value={data.this_week_done.length} />
-        <Stat label="This week doing" value={data.this_week_doing.length} />
-        <Stat label="Next week" value={data.next_week_planned.length} />
+      <div className="mt-5">
+        <WeekTabs board={data.board} active={activeWeek} onChange={setActiveWeek} />
       </div>
 
-      <WeekSection title="Last week" range={formatReviewRange(data.last_week_start, data.last_week_end)} hint="Work finished last week.">
-        <TaskList tasks={data.last_week_done} empty="No tasks finished last week." done />
-      </WeekSection>
-
-      <WeekSection title="This week" range={formatReviewRange(data.week_start, data.week_end)} hint="Finished and in progress this week.">
-        <p className="border-b border-line px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Done</p>
-        <TaskList tasks={data.this_week_done} empty="No tasks finished this week." done />
-        <p className="border-b border-t border-line px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Doing</p>
-        <TaskList tasks={data.this_week_doing} empty="No tasks in progress this week." />
-      </WeekSection>
-
-      <WeekSection title="Next week" range={formatReviewRange(data.plan_week_start, data.plan_week_end)} hint="Work due or focused for next week.">
-        <TaskList tasks={data.next_week_planned} empty="No tasks planned for next week." />
-      </WeekSection>
-
-      {data.projects.length > 0 && (
-        <>
-          <p className="section-label mt-8">Project progress</p>
-          <div className="mt-2 space-y-2">
-            {data.projects.map((p) => (
-              <Link key={p.id} href={`/projects/${p.id}`} className="flex items-center gap-3 text-sm">
-                <span className="w-40 truncate">{p.name}</span>
-                <span className="h-3 flex-1 rounded bg-line">
-                  <span className="block h-3 rounded bg-accent/70" style={{ width: `${p.progress}%` }} />
-                </span>
-                <span className="w-10 text-right text-muted">{p.progress}%</span>
-              </Link>
-            ))}
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {weekKeys.map((k) => (
+          <div key={k} className={k === activeWeek ? "" : "hidden xl:block"}>
+            <WeekColumn
+              week={k}
+              data={data.board[k]}
+              active={k === activeWeek}
+              canEdit={me?.workspace?.role !== "guest"}
+              onActivate={() => setActiveWeek(k)}
+              onSave={(taskId, value) => {
+                setError("");
+                void api("/api/review/week-target", {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    task_id: taskId,
+                    week_start: data.board[k].start,
+                    ...(k === "last" ? { actual_progress: value } : { target_progress: value }),
+                  }),
+                })
+                  .then(() => load())
+                  .catch((e) => setError(e instanceof Error ? e.message : "Couldn’t save the plan."));
+              }}
+            />
           </div>
-        </>
-      )}
+        ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <BoardLegend />
+        <p className="text-[11px] text-faint">Drag a bar to set the %. A later week’s plan can’t be lower than the week before it, and anything already at 100% stays out of the following week. Only projects and tasks set to In Progress are listed. Each week keeps tasks whose own deadline falls in that week. Use the arrows to open another week.</p>
+      </div>
 
       {ai && (
         <div className="mt-8 rounded-xl glass p-4 text-sm">
@@ -212,62 +239,66 @@ export default function ReviewPage() {
         </div>
       )}
 
-      <p className="section-label mt-8">Overdue</p>
-      <div className="mt-2 overflow-hidden rounded-xl glass">
-        {data.overdue.length === 0 && <p className="px-4 py-3 text-sm text-muted">Nothing overdue.</p>}
-        {data.overdue.map((t) => (
-          <OverdueRow
-            key={t.id}
-            task={t}
-            today={today}
-            tomorrow={tomorrow}
-            nextMonday={nextMonday}
-            onReschedule={(due) => void reschedule(t.id, due)}
-            onDrop={() => void drop(t.id)}
-          />
-        ))}
-      </div>
-
-      <p className="section-label mt-8">Blocked</p>
-      <div className="mt-2 overflow-hidden rounded-xl glass">
-        {data.blocked.length === 0 && <p className="px-4 py-3 text-sm text-muted">Nothing blocked.</p>}
-        {data.blocked.map((t) => (
-          <div key={t.id} className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5 text-sm last:border-0">
-            <Link href={`/tasks/${t.id}`} className="min-w-[160px] flex-1 truncate font-medium">
-              {t.title}
-              {t.blocked_reason ? <span className="ml-2 font-normal text-muted">{t.blocked_reason}</span> : null}
-            </Link>
-            <button type="button" className="text-sm font-medium text-accent" onClick={() => void unblock(t.id)}>
-              Unblock
-            </button>
-            <span className="text-sm text-muted">Keep</span>
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section>
+          <p className="section-label">Overdue</p>
+          <div className="mt-2 overflow-hidden rounded-xl glass">
+            {data.overdue.length === 0 && <p className="px-4 py-3 text-sm text-muted">Nothing overdue.</p>}
+            {data.overdue.map((t) => (
+              <OverdueRow
+                key={t.id}
+                task={t}
+                today={today}
+                tomorrow={tomorrow}
+                nextMonday={nextMonday}
+                onReschedule={(due) => void reschedule(t.id, due)}
+                onDrop={() => void drop(t.id)}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
 
-      <p className="section-label mt-8">Focus next week (max 3)</p>
-      <div className="mt-2 overflow-hidden rounded-xl glass">
-        {focusPool.length === 0 && <p className="px-4 py-3 text-sm text-muted">No candidates yet. Add an organized task.</p>}
-        {focusPool.map((t) => {
-          const on = focusIds.includes(t.id);
-          const locked = !on && focusIds.length >= 3;
-          return (
-            <label key={t.id} className={`flex h-11 items-center gap-3 border-b border-line px-4 text-sm last:border-0 ${locked ? "opacity-40" : ""}`}>
-              <input type="checkbox" checked={on} disabled={locked} onChange={() => toggleFocus(t)} />
-              <span className="flex-1 truncate">{t.title}</span>
-              <span className="text-xs text-muted">{formatDue(t.due_date)}</span>
-            </label>
-          );
-        })}
-      </div>
-      <button type="button" className="btn-ghost mt-2" onClick={() => void openAdd()}>
-        Add
-      </button>
+        <section>
+          <p className="section-label">Blocked</p>
+          <div className="mt-2 overflow-hidden rounded-xl glass">
+            {data.blocked.length === 0 && <p className="px-4 py-3 text-sm text-muted">Nothing blocked.</p>}
+            {data.blocked.map((t) => (
+              <div key={t.id} className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5 text-sm last:border-0">
+                <Link href={`/tasks/${t.id}`} className="min-w-[160px] flex-1 truncate font-medium">
+                  {t.title}
+                  {t.blocked_reason ? <span className="ml-2 font-normal text-muted">{t.blocked_reason}</span> : null}
+                </Link>
+                <button type="button" className="text-sm font-medium text-accent" onClick={() => void unblock(t.id)}>
+                  Unblock
+                </button>
+                <span className="text-sm text-muted">Keep</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <button type="button" className="btn-primary" disabled={saving} onClick={() => void finish()}>
-          {saving ? "Saving…" : "Done reviewing"}
-        </button>
+        <section>
+          <div className="flex items-center justify-between">
+            <p className="section-label">Focus next week (max 3)</p>
+            <button type="button" className="text-[12px] font-medium text-accent" onClick={() => void openAdd()}>
+              Add
+            </button>
+          </div>
+          <div className="mt-2 overflow-hidden rounded-xl glass">
+            {focusPool.length === 0 && <p className="px-4 py-3 text-sm text-muted">No candidates yet. Add an organized task.</p>}
+            {focusPool.map((t) => {
+              const on = focusIds.includes(t.id);
+              const locked = !on && focusIds.length >= 3;
+              return (
+                <label key={t.id} className={`flex h-11 items-center gap-3 border-b border-line px-4 text-sm last:border-0 ${locked ? "opacity-40" : ""}`}>
+                  <input type="checkbox" checked={on} disabled={locked} onChange={() => toggleFocus(t)} />
+                  <span className="flex-1 truncate">{t.title}</span>
+                  <span className="text-xs text-muted">{formatDue(t.due_date)}</span>
+                </label>
+              );
+            })}
+          </div>
+        </section>
       </div>
 
       {picker && (
@@ -294,39 +325,6 @@ export default function ReviewPage() {
       )}
 
     </div>
-  );
-}
-
-function statusLabel(status: Task["status"]) {
-  if (status === "in_progress") return "In progress";
-  if (status === "todo") return "To do";
-  if (status === "blocked") return "Blocked";
-  return "Done";
-}
-
-function WeekSection({ title, range, hint, children }: { title: string; range: string; hint: string; children: ReactNode }) {
-  return (
-    <section className="mt-8">
-      <p className="section-label">{title}</p>
-      <h2 className="mt-1 text-base font-semibold">{range}</h2>
-      <p className="mt-1 text-sm text-muted">{hint}</p>
-      <div className="mt-2 overflow-hidden rounded-xl glass">{children}</div>
-    </section>
-  );
-}
-
-function TaskList({ tasks, empty, done }: { tasks: Task[]; empty: string; done?: boolean }) {
-  if (tasks.length === 0) return <p className="px-4 py-3 text-sm text-muted">{empty}</p>;
-  return (
-    <>
-      {tasks.map((task) => (
-        <Link key={task.id} href={`/tasks/${task.id}`} className="flex h-11 items-center gap-3 border-b border-line px-4 text-sm last:border-0 hover:bg-hover">
-          <span className={`flex-1 truncate ${done ? "text-muted line-through" : "font-medium"}`}>{task.title}</span>
-          <span className="text-xs capitalize text-muted">{done ? "Done" : statusLabel(task.status)}</span>
-          <span className="text-xs text-muted">{formatDue(task.due_date)}</span>
-        </Link>
-      ))}
-    </>
   );
 }
 
@@ -389,15 +387,6 @@ function OverdueRow({
       <button type="button" className="text-sm font-medium text-overdue" onClick={onDrop}>
         Drop
       </button>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl glass px-4 py-3">
-      <p className="text-[12px] text-muted">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }

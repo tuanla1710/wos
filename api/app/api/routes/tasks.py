@@ -87,7 +87,11 @@ def get_task_route(
 
     task = get_task(db, workspace, task_id)
     require_see_task(db, member, task)
-    return detail_out(db, task, user)
+    from app.services.review import task_week_plan
+
+    data = detail_out(db, task, user)
+    data["week_plan"] = task_week_plan(db, workspace, user, task)
+    return data
 
 
 @router.patch("/tasks/{task_id}")

@@ -8,6 +8,7 @@ from app.models.task import Task
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.dates import user_today
+from app.services.projects import progress_by_project
 
 
 def project_work_status(tasks: list[Task], today, project_due) -> str:
@@ -99,6 +100,7 @@ def workspace_statistics(db: Session, workspace: Workspace, member: WorkspaceMem
         "done": 0,
     }
     project_rows = []
+    project_scores = progress_by_project(db, workspace)
     for project in projects:
         rows = by_project.get(project.id, [])
         status = project_work_status(rows, today, project.due_date)
@@ -110,7 +112,7 @@ def workspace_statistics(db: Session, workspace: Workspace, member: WorkspaceMem
                 "id": str(project.id),
                 "name": project.name,
                 "status": status,
-                "progress": round((completed / total) * 100) if total else 0,
+                "progress": project_scores.get(project.id, 0),
                 "tasks": total,
                 "completed": completed,
                 "in_progress": sum(1 for t in rows if t.status == "in_progress"),
