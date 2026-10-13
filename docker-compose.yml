@@ -26,7 +26,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-workos}:${POSTGRES_PASSWORD:-workos}@db:5432/${POSTGRES_DB:-workos}
       SECRET_KEY: ${SECRET_KEY:-change-me}
       SESSION_DAYS: ${SESSION_DAYS:-30}
-      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3001}
       UPLOAD_DIR: /app/uploads
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@workos.dev}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin1234}
@@ -38,7 +38,7 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM: ${TWILIO_FROM:-}
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "${API_PORT:-8081}:8081"
     volumes:
       - api_uploads:/app/uploads
     depends_on:
@@ -50,7 +50,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)",
         ]
       interval: 10s
       timeout: 5s
@@ -62,11 +62,11 @@ services:
       context: ./web
     restart: unless-stopped
     environment:
-      API_URL: http://api:8080
+      API_URL: http://api:8081
       HOSTNAME: 0.0.0.0
       PORT: "3000"
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "${WEB_PORT:-3001}:3000"
     depends_on:
       api:
         condition: service_healthy
